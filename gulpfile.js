@@ -10,10 +10,6 @@ var tsc = require("gulp-typescript");
 //* GLOBAL VARIABLES
 //******************************************************************************
 
-global.TSTypings = {
-    "Main": 'typings/index.d.ts'
-};
-
 global.TSCompiledOutput = {
     "RootFolder": 'build/src',
     "TestRootFolder": 'build/tests',
@@ -78,7 +74,6 @@ try {
 
 require("./buildtasks/build.js");
 require("./buildtasks/build-serve-dist.js");
-require("./buildtasks/build-typings.js");
 require("./buildtasks/clean.js");
 require("./buildtasks/copyJsToSharePoint.js");
 require("./buildtasks/copyRequireJsToSharePoint.js");

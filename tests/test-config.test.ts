@@ -12,7 +12,7 @@ export let testSettings = Util.extend(global.settings.testing, { webUrl: ""  });
 before(function (done: MochaDone) {
 
     // this may take some time, don't timeout early
-    this.timeout(30000);
+    this.timeout(90000);
 
     // establish the connection to sharepoint
     if (testSettings.enableWebTests) {
@@ -25,9 +25,8 @@ before(function (done: MochaDone) {
             },
         });
 
-        // this.timeout(90000);
+        // comment this out to keep older subsites
         // cleanUpAllSubsites();
-        // throw new Error("stop");
 
         // create the web in which we will test
         let d = new Date();
@@ -78,5 +77,5 @@ export function cleanUpAllSubsites() {
                     }));
             }).then(() => { web.delete(); });
         });
-    });
+    }).catch(e => console.log("Error: " + JSON.stringify(e)));
 }

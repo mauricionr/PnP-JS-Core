@@ -1,7 +1,7 @@
 "use strict";
 
 import { Dictionary } from "../collections/collections";
-import { HttpClient } from "./httpClient";
+import { HttpClient } from "./httpclient";
 import { Util } from "../utils/util";
 import { ODataDefaultParser } from "../sharepoint/rest/odata";
 

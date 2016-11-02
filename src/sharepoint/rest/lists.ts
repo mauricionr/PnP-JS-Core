@@ -70,10 +70,7 @@ export class Lists extends QueryableCollection {
         }, additionalSettings));
 
         return this.post({ body: postBody }).then((data) => {
-            return {
-                list: this.getByTitle(title),
-                data: data
-            };
+            return { data: data, list: this.getByTitle(title) };
         });
     }
     /*tslint:enable */
@@ -99,10 +96,10 @@ export class Lists extends QueryableCollection {
 
             let list: List = this.getByTitle(title);
 
-            list.get().then((d) => resolve({ created: false, list: list, data: d })).catch(() => {
+            list.get().then((d) => resolve({ created: false, data: d, list: list })).catch(() => {
 
                 this.add(title, description, template, enableContentTypes, additionalSettings).then((r) => {
-                    resolve({ created: true, list: this.getByTitle(title), data: r.data });
+                    resolve({ created: true, data: r.data, list: this.getByTitle(title) });
                 });
 
             }).catch((e) => reject(e));
@@ -254,7 +251,7 @@ export class List extends QueryableSecurable {
      * @param properties A plain object hash of values to update for the list
      * @param eTag Value used in the IF-Match header, by default "*"
      */
-    /* tslint:disable member-access */
+    /* tslint:disable no-string-literal */
     public update(properties: TypedHash<string | number | boolean>, eTag = "*"): Promise<ListUpdateResult> {
 
         let postBody = JSON.stringify(Util.extend({
@@ -311,6 +308,22 @@ export class List extends QueryableSecurable {
 
     /**
      * Returns a collection of items from the list based on the specified query.
+     * 
+     * @param CamlQuery The Query schema of Collaborative Application Markup 
+     * Language (CAML) is used in various ways within the context of Microsoft SharePoint Foundation 
+     * to define queries against list data.
+     * see:
+     * 
+     * https://msdn.microsoft.com/en-us/library/office/ms467521.aspx
+     *      
+     * @param expands A URI with a $expand System Query Option indicates that Entries associated with
+     * the Entry or Collection of Entries identified by the Resource Path 
+     * section of the URI must be represented inline (i.e. eagerly loaded). 
+     * see:
+     * 
+     * https://msdn.microsoft.com/en-us/library/office/fp142385.aspx
+     * 
+     * http://www.odata.org/documentation/odata-version-2-0/uri-conventions/#ExpandSystemQueryOption
      */
     public getItemsByCAMLQuery(query: CamlQuery, ...expands: string[]): Promise<any> {
 

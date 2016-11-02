@@ -1,12 +1,12 @@
 "use strict";
 
-import { IListInstance } from "./ilistinstance";
-import { ICustomAction } from "./icustomaction";
-import { IFeature } from "./ifeature";
-import { IFile } from "./ifile";
+import { IListInstance } from "./IListInstance";
+import { ICustomAction } from "./ICustomAction";
+import { IFeature } from "./IFeature";
+import { IFile } from "./IFile";
 import { INavigation } from "./inavigation";
-import { IComposedLook } from "./icomposedlook";
-import { IWebSettings } from "./iwebsettings";
+import { IComposedLook } from "./IComposedLook";
+import { IWebSettings } from "./IWebSettings";
 
 export interface SiteSchema {
     Lists: Array<IListInstance>;

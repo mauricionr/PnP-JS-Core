@@ -52,13 +52,13 @@ export class Views extends QueryableCollection {
         let postBody = JSON.stringify(Util.extend({
             "__metadata": { "type": "SP.View" },
             "Title": title,
-            "PersonalView": personalView
+            "PersonalView": personalView,
         }, additionalSettings));
 
         return this.postAs<any, { Id: string }>({ body: postBody }).then((data) => {
             return {
+                data: data,
                 view: this.getById(data.Id),
-                data: data
             };
         });
     }

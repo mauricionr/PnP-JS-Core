@@ -22,10 +22,9 @@ var gulp = require("gulp"),
 
 gulp.task("build-tests", ["clean"], function() {
     var src = global.TSWorkspace.Tests.slice(0);
-    src.push(global.TSTypings.Main);
 
     return gulp.src(src)
-        .pipe(tsc(global.tsProject))
+        .pipe(global.tsProject())
         .pipe(gulp.dest(global.TSCompiledOutput.TestRootFolder));
 });
 

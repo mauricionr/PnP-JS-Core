@@ -1,11 +1,11 @@
 "use strict";
 
-import { IFolder } from "./ifolder";
-import { IListInstanceFieldRef } from "./ilistinstancefieldref";
-import { IField } from "./ifield";
-import { IView } from "./iview";
-import { ISecurity } from "./isecurity";
-import { IContentTypeBinding } from "./icontenttypebinding";
+import { IFolder } from "./IFolder";
+import { IListInstanceFieldRef } from "./IListInstanceFieldRef";
+import { IField } from "./IField";
+import { IView } from "./IView";
+import { ISecurity } from "./ISecurity";
+import { IContentTypeBinding } from "./IContentTypeBinding";
 
 export interface IListInstance {
     Title: string;

@@ -6,7 +6,7 @@ let nodeFetch = require("node-fetch");
 let u: any = require("url");
 import { HttpClientImpl } from "./httpclient";
 import { Util } from "../utils/util";
-import { Logger } from "../utils/logging";
+import { Logger, LogLevel } from "../utils/logging";
 
 export interface AuthToken {
     token_type: string;
@@ -22,6 +22,9 @@ export interface AuthToken {
  */
 export class NodeFetchClient implements HttpClientImpl {
 
+    private static SharePointServicePrincipal: string = "00000003-0000-0ff1-ce00-000000000000";
+    private token: AuthToken = null;
+
     constructor(public siteUrl: string, private _clientId: string, private _clientSecret: string, private _realm = "") {
 
         // here we "cheat" and set the globals for fetch things when this client is instantiated
@@ -29,9 +32,6 @@ export class NodeFetchClient implements HttpClientImpl {
         global.Request = nodeFetch.Request;
         global.Response = nodeFetch.Response;
     }
-
-    private static SharePointServicePrincipal: string = "00000003-0000-0ff1-ce00-000000000000";
-    private token: AuthToken = null;
 
     public fetch(url: string, options: any): Promise<Response> {
 
@@ -64,7 +64,7 @@ export class NodeFetchClient implements HttpClientImpl {
                 let body = [];
                 body.push("grant_type=client_credentials");
                 body.push(`client_id=${formattedClientId}`);
-                body.push(`client_secret=${this._clientSecret}`);
+                body.push(`client_secret=${encodeURIComponent(this._clientSecret)}`);
                 body.push(`resource=${resource}`);
 
                 return nodeFetch(authUrl, {
@@ -120,7 +120,7 @@ export class NodeFetchClient implements HttpClientImpl {
 
             Logger.log({
                 data: json,
-                level: Logger.LogLevel.Error,
+                level: LogLevel.Error,
                 message: "Auth URL Endpoint could not be determined from data. Data logged.",
             });
             throw new Error("Auth URL Endpoint could not be determined from data. Data logged.");

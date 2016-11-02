@@ -1,7 +1,7 @@
 "use strict";
 
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
-import { IWebSettings } from "../schema/iwebsettings";
+import { ObjectHandlerBase } from "./objecthandlerbase";
+import { IWebSettings } from "../schema/IWebSettings";
 
 /**
  * Describes the Web Settings Object Handler

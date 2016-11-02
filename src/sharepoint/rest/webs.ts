@@ -184,6 +184,15 @@ export class Web extends QueryableSecurable {
     }
 
     /**
+     * Get a list by server relative url (list's root folder)
+     *
+     * @param listRelativeUrl the server relative path to the list's root folder (including /sites/ if applicable)
+     */
+    public getList(listRelativeUrl: string): List {
+        return new List(this, `getList('${listRelativeUrl}')`);
+    }
+
+    /**
      * Updates this web intance with the supplied properties
      *
      * @param properties A plain object hash of values to update for the web

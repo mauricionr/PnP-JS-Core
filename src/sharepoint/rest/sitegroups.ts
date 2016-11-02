@@ -177,7 +177,7 @@ export class SiteGroup extends QueryableInstance {
     *
     * @param properties A GroupWriteableProperties object of property names and values to update for the user
     */
-    /* tslint:disable member-access */
+    /* tslint:disable no-string-literal */
     public update(properties: GroupWriteableProperties): Promise<GroupUpdateResult> {
 
         let postBody = Util.extend({ "__metadata": { "type": "SP.Group" } }, properties);
@@ -186,7 +186,7 @@ export class SiteGroup extends QueryableInstance {
             body: JSON.stringify(postBody),
             headers: {
                 "X-HTTP-Method": "MERGE",
-            }
+            },
         }).then((data) => {
 
             let retGroup: SiteGroup = this;

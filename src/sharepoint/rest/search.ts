@@ -22,59 +22,59 @@ export interface SearchQuery {
      * A Boolean value that specifies whether the result tables that are returned for 
      * the result block are mixed with the result tables that are returned for the original query. 
      */
-    EnableInterleaving?: Boolean;
+    EnableInterleaving?: boolean;
 
     /**
      * A Boolean value that specifies whether stemming is enabled. 
      */
-    EnableStemming?: Boolean;
+    EnableStemming?: boolean;
 
     /**
      * A Boolean value that specifies whether duplicate items are removed from the results. 
      */
-    TrimDuplicates?: Boolean;
+    TrimDuplicates?: boolean;
 
     /**
      * A Boolean value that specifies whether the exact terms in the search query are used to find matches, or if nicknames are used also. 
      */
-    EnableNicknames?: Boolean;
+    EnableNicknames?: boolean;
 
     /**
      * A Boolean value that specifies whether the query uses the FAST Query Language (FQL).
      */
-    EnableFql?: Boolean;
+    EnableFql?: boolean;
 
     /**
      * A Boolean value that specifies whether the phonetic forms of the query terms are used to find matches.
      */
-    EnablePhonetic?: Boolean;
+    EnablePhonetic?: boolean;
 
     /**
      * A Boolean value that specifies whether to perform result type processing for the query.
      */
-    BypassResultTypes?: Boolean;
+    BypassResultTypes?: boolean;
 
     /**
      * A Boolean value that specifies whether to return best bet results for the query.
      * This parameter is used only when EnableQueryRules is set to true, otherwise it is ignored.
      */
-    ProcessBestBets?: Boolean;
+    ProcessBestBets?: boolean;
 
     /**
      * A Boolean value that specifies whether to enable query rules for the query.
      */
-    EnableQueryRules?: Boolean;
+    EnableQueryRules?: boolean;
 
     /**
      * A Boolean value that specifies whether to sort search results. 
      */
-    EnableSorting?: Boolean;
+    EnableSorting?: boolean;
 
     /**
      * Specifies whether to return block rank log information in the BlockRankLog property of the interleaved result table. 
      * A block rank log contains the textual information on the block score and the documents that were de-duplicated.
      */
-    GenerateBlockRankLog?: Boolean;
+    GenerateBlockRankLog?: boolean;
 
     /**
      * The result source ID to use for executing the search query.  
@@ -90,20 +90,20 @@ export interface SearchQuery {
      * The first row that is included in the search results that are returned. 
      * You use this parameter when you want to implement paging for search results.
      */
-    StartRow?: Number;
+    StartRow?: number;
 
     /**
      * The maximum number of rows overall that are returned in the search results. 
      * Compared to RowsPerPage, RowLimit is the maximum number of rows returned overall.
      */
-    RowLimit?: Number;
+    RowLimit?: number;
 
     /**
      * The maximum number of rows to return per page. 
      * Compared to RowLimit, RowsPerPage refers to the maximum number of rows to return per page,
      * and is used primarily when you want to implement paging for search results.
      */
-    RowsPerPage?: Number;
+    RowsPerPage?: number;
 
     /**
      * The managed properties to return in the search results.  
@@ -113,7 +113,7 @@ export interface SearchQuery {
     /**
      * The locale ID (LCID) for the query.  
      */
-    Culture?: Number;
+    Culture?: number;
 
     /**
      * The set of refinement filters used when issuing a refinement query (FQL)  
@@ -138,7 +138,7 @@ export interface SearchQuery {
     /**
      * The amount of time in milliseconds before the query request times out. 
      */
-    Timeout?: Number;
+    Timeout?: number;
 
     /**
      * The properties to highlight in the search result summary when the property value matches the search terms entered by the user.
@@ -172,7 +172,7 @@ export interface SearchQuery {
     /**
      *  A Boolean value that specifies whether to return personal favorites with the search results.
      */
-    ProcessPersonalFavorites?: Boolean;
+    ProcessPersonalFavorites?: boolean;
 
     /**
      * The location of the queryparametertemplate.xml file. This file is used to enable anonymous users to make Search REST queries.
@@ -189,39 +189,39 @@ export interface SearchQuery {
     /**
      * The number of properties to show hit highlighting for in the search results.
      */
-    HitHighlightedMultivaluePropertyLimit?: Number;
+    HitHighlightedMultivaluePropertyLimit?: number;
 
     /**
      * A Boolean value that specifies whether the hit highlighted properties can be ordered.
      */
-    EnableOrderingHitHighlightedProperty?: Boolean;
+    EnableOrderingHitHighlightedProperty?: boolean;
 
     /**
      * The managed properties that are used to determine how to collapse individual search results. 
      * Results are collapsed into one or a specified number of results if they match any of the individual collapse specifications. 
      * In a collapse specification, results are collapsed if their properties match all individual properties in the collapse specification.
      */
-    CollapseSpecification?: String;
+    CollapseSpecification?: string;
 
     /**
      * The locale identifier (LCID) of the user interface
      */
-    UIlanguage?: Number;
+    UIlanguage?: number;
 
     /**
      * The preferred number of characters to display in the hit-highlighted summary generated for a search result.
      */
-    DesiredSnippetLength?: Number;
+    DesiredSnippetLength?: number;
 
     /**
      * The maximum number of characters to display in the hit-highlighted summary generated for a search result.
      */
-    MaxSnippetLength?: Number;
+    MaxSnippetLength?: number;
 
     /**
      * The number of characters to display in the result summary for a search result.
      */
-    SummaryLength?: Number;
+    SummaryLength?: number;
 
 }
 
@@ -277,17 +277,22 @@ export class Search extends QueryableInstance {
         // TODO: Properties & ReorderingRules
 
         let postBody = JSON.stringify({ request: formattedBody });
-        return this.post({ body: postBody }).then((data) => {
-            return new SearchResults(data);
-        });
-    }
 
+        return this.post({ body: postBody }).then((data) => new SearchResults(data));
+    }
 }
 
 /**
  * Describes the SearchResults class, which returns the formatted and raw version of the query response 
  */
 export class SearchResults {
+
+    public PrimarySearchResults: any;
+    public RawSearchResults: any;
+    public RowCount: number;
+    public TotalRows: number;
+    public TotalRowsIncludingDuplicates: number;
+    public ElapsedTime: number;
 
     /**
      * Creates a new instance of the SearchResult class
@@ -302,13 +307,6 @@ export class SearchResults {
         this.TotalRows = response.PrimaryQueryResult.RelevantResults.TotalRows;
         this.TotalRowsIncludingDuplicates = response.PrimaryQueryResult.RelevantResults.TotalRowsIncludingDuplicates;
     }
-
-    public PrimarySearchResults: Object;
-    public RawSearchResults: Object;
-    public RowCount: Number;
-    public TotalRows: Number;
-    public TotalRowsIncludingDuplicates: Number;
-    public ElapsedTime: Number;
 
     /**
      * Formats a search results array
@@ -383,7 +381,7 @@ export interface ReorderingRule {
     /**
      * The rank boosting
      */
-    Boost: Number;
+    Boost: number;
 
     /**
     * The rank boosting

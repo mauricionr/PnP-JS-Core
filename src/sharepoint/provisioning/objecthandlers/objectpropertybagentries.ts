@@ -1,8 +1,8 @@
 "use strict";
 
 import { Util } from "../util";
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
-import { IPropertyBagEntry } from "../schema/ipropertybagentry";
+import { ObjectHandlerBase } from "./objecthandlerbase";
+import { IPropertyBagEntry } from "../schema/IPropertyBagEntry";
 
 /**
  * Describes the Property Bag Entries Object Handler

@@ -1,8 +1,8 @@
 "use strict";
 
 import { Queryable } from "./queryable";
-import { QuickLaunch } from "./quickLaunch";
-import { TopNavigationBar } from "./topNavigationBar";
+import { QuickLaunch } from "./quicklaunch";
+import { TopNavigationBar } from "./topnavigationbar";
 
 /**
  * Exposes the navigation components

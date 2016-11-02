@@ -1,5 +1,5 @@
 /**
- * sp-pnp-js v1.0.3 - A reusable JavaScript library targeting SharePoint client-side development.
+ * sp-pnp-js v1.0.5 - A reusable JavaScript library targeting SharePoint client-side development.
  * MIT (https://github.com/OfficeDev/PnP-JS-Core/blob/master/LICENSE)
  * Copyright (c) 2016 Microsoft
  * docs: http://officedev.github.io/PnP-JS-Core
@@ -76,7 +76,7 @@ var Dictionary = (function () {
 }());
 exports.Dictionary = Dictionary;
 
-},{"../utils/util":42}],2:[function(require,module,exports){
+},{"../utils/util":43}],2:[function(require,module,exports){
 "use strict";
 var Collections = require("../collections/collections");
 var providers = require("./providers/providers");
@@ -129,6 +129,7 @@ var Settings = (function () {
 exports.Settings = Settings;
 
 },{"../collections/collections":1,"./providers/providers":5}],3:[function(require,module,exports){
+(function (global){
 "use strict";
 var RuntimeConfigImpl = (function () {
     function RuntimeConfigImpl() {
@@ -158,6 +159,9 @@ var RuntimeConfigImpl = (function () {
             this._useNodeClient = true;
             this._useSPRequestExecutor = false;
             this._nodeClientData = config.nodeClientOptions;
+            global._spPageContextInfo = {
+                webAbsoluteUrl: config.nodeClientOptions.siteUrl,
+            };
         }
     };
     Object.defineProperty(RuntimeConfigImpl.prototype, "headers", {
@@ -219,6 +223,8 @@ function setRuntimeConfig(config) {
 }
 exports.setRuntimeConfig = setRuntimeConfig;
 
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+
 },{}],4:[function(require,module,exports){
 "use strict";
 var storage = require("../../utils/storage");
@@ -263,7 +269,7 @@ var CachingConfigurationProvider = (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = CachingConfigurationProvider;
 
-},{"../../utils/storage":41}],5:[function(require,module,exports){
+},{"../../utils/storage":42}],5:[function(require,module,exports){
 "use strict";
 var cachingConfigurationProvider_1 = require("./cachingConfigurationProvider");
 var spListConfigurationProvider_1 = require("./spListConfigurationProvider");
@@ -314,6 +320,77 @@ exports.default = SPListConfigurationProvider;
 
 },{"./cachingConfigurationProvider":4}],7:[function(require,module,exports){
 "use strict";
+var collections_1 = require("../collections/collections");
+var util_1 = require("../utils/util");
+var odata_1 = require("../sharepoint/rest/odata");
+var CachedDigest = (function () {
+    function CachedDigest() {
+    }
+    return CachedDigest;
+}());
+exports.CachedDigest = CachedDigest;
+var DigestCache = (function () {
+    function DigestCache(_httpClient, _digests) {
+        if (_digests === void 0) { _digests = new collections_1.Dictionary(); }
+        this._httpClient = _httpClient;
+        this._digests = _digests;
+    }
+    DigestCache.prototype.getDigest = function (webUrl) {
+        var self = this;
+        var cachedDigest = this._digests.get(webUrl);
+        if (cachedDigest !== null) {
+            var now = new Date();
+            if (now < cachedDigest.expiration) {
+                return Promise.resolve(cachedDigest.value);
+            }
+        }
+        var url = util_1.Util.combinePaths(webUrl, "/_api/contextinfo");
+        return self._httpClient.fetchRaw(url, {
+            cache: "no-cache",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json;odata=verbose",
+                "Content-type": "application/json;odata=verbose;charset=utf-8",
+            },
+            method: "POST",
+        }).then(function (response) {
+            var parser = new odata_1.ODataDefaultParser();
+            return parser.parse(response).then(function (d) { return d.GetContextWebInformation; });
+        }).then(function (data) {
+            var newCachedDigest = new CachedDigest();
+            newCachedDigest.value = data.FormDigestValue;
+            var seconds = data.FormDigestTimeoutSeconds;
+            var expiration = new Date();
+            expiration.setTime(expiration.getTime() + 1000 * seconds);
+            newCachedDigest.expiration = expiration;
+            self._digests.add(webUrl, newCachedDigest);
+            return newCachedDigest.value;
+        });
+    };
+    DigestCache.prototype.clear = function () {
+        this._digests.clear();
+    };
+    return DigestCache;
+}());
+exports.DigestCache = DigestCache;
+
+},{"../collections/collections":1,"../sharepoint/rest/odata":23,"../utils/util":43}],8:[function(require,module,exports){
+(function (global){
+"use strict";
+var FetchClient = (function () {
+    function FetchClient() {
+    }
+    FetchClient.prototype.fetch = function (url, options) {
+        return global.fetch(url, options);
+    };
+    return FetchClient;
+}());
+exports.FetchClient = FetchClient;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+
+},{}],9:[function(require,module,exports){
+"use strict";
 var fetchclient_1 = require("./fetchclient");
 var digestcache_1 = require("./digestcache");
 var util_1 = require("../utils/util");
@@ -339,7 +416,7 @@ var HttpClient = (function () {
             headers.append("Content-Type", "application/json;odata=verbose;charset=utf-8");
         }
         if (!headers.has("X-ClientService-ClientTag")) {
-            headers.append("X-ClientService-ClientTag", "SharePoint.PnP.JavaScriptCore");
+            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.5");
         }
         opts = util_1.Util.extend(opts, { headers: headers });
         if (opts.method && opts.method.toUpperCase() !== "GET") {
@@ -423,80 +500,7 @@ var HttpClient = (function () {
 }());
 exports.HttpClient = HttpClient;
 
-},{"../configuration/pnplibconfig":3,"../utils/util":42,"./digestcache":8,"./fetchclient":9,"./nodefetchclient":11,"./sprequestexecutorclient":12}],8:[function(require,module,exports){
-"use strict";
-var collections_1 = require("../collections/collections");
-var util_1 = require("../utils/util");
-var odata_1 = require("../sharepoint/rest/odata");
-var CachedDigest = (function () {
-    function CachedDigest() {
-    }
-    return CachedDigest;
-}());
-exports.CachedDigest = CachedDigest;
-var DigestCache = (function () {
-    function DigestCache(_httpClient, _digests) {
-        if (_digests === void 0) { _digests = new collections_1.Dictionary(); }
-        this._httpClient = _httpClient;
-        this._digests = _digests;
-    }
-    DigestCache.prototype.getDigest = function (webUrl) {
-        var self = this;
-        var cachedDigest = this._digests.get(webUrl);
-        if (cachedDigest !== null) {
-            var now = new Date();
-            if (now < cachedDigest.expiration) {
-                return Promise.resolve(cachedDigest.value);
-            }
-        }
-        var url = util_1.Util.combinePaths(webUrl, "/_api/contextinfo");
-        return self._httpClient.fetchRaw(url, {
-            cache: "no-cache",
-            credentials: "same-origin",
-            headers: {
-                "Accept": "application/json;odata=verbose",
-                "Content-type": "application/json;odata=verbose;charset=utf-8",
-            },
-            method: "POST",
-        }).then(function (response) {
-            var parser = new odata_1.ODataDefaultParser();
-            return parser.parse(response).then(function (d) { return d.GetContextWebInformation; });
-        }).then(function (data) {
-            var newCachedDigest = new CachedDigest();
-            newCachedDigest.value = data.FormDigestValue;
-            var seconds = data.FormDigestTimeoutSeconds;
-            var expiration = new Date();
-            expiration.setTime(expiration.getTime() + 1000 * seconds);
-            newCachedDigest.expiration = expiration;
-            self._digests.add(webUrl, newCachedDigest);
-            return newCachedDigest.value;
-        });
-    };
-    DigestCache.prototype.clear = function () {
-        this._digests.clear();
-    };
-    return DigestCache;
-}());
-exports.DigestCache = DigestCache;
-
-},{"../collections/collections":1,"../sharepoint/rest/odata":23,"../utils/util":42}],9:[function(require,module,exports){
-(function (global){
-"use strict";
-var FetchClient = (function () {
-    function FetchClient() {
-    }
-    FetchClient.prototype.fetch = function (url, options) {
-        return global.fetch(url, options);
-    };
-    return FetchClient;
-}());
-exports.FetchClient = FetchClient;
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-
-},{}],10:[function(require,module,exports){
-arguments[4][7][0].apply(exports,arguments)
-},{"../configuration/pnplibconfig":3,"../utils/util":42,"./digestcache":8,"./fetchclient":9,"./nodefetchclient":11,"./sprequestexecutorclient":12,"dup":7}],11:[function(require,module,exports){
+},{"../configuration/pnplibconfig":3,"../utils/util":43,"./digestcache":7,"./fetchclient":8,"./nodefetchclient":10,"./sprequestexecutorclient":11}],10:[function(require,module,exports){
 "use strict";
 var NodeFetchClient = (function () {
     function NodeFetchClient(siteUrl, _clientId, _clientSecret, _realm) {
@@ -513,8 +517,9 @@ var NodeFetchClient = (function () {
 }());
 exports.NodeFetchClient = NodeFetchClient;
 
-},{}],12:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 "use strict";
+var util_1 = require("../utils/util");
 var SPRequestExecutorClient = (function () {
     function SPRequestExecutorClient() {
         this.convertToResponse = function (spResponse) {
@@ -550,8 +555,7 @@ var SPRequestExecutorClient = (function () {
             headers = options.headers;
         }
         return new Promise(function (resolve, reject) {
-            executor.executeAsync({
-                body: options.body,
+            var requestOptions = {
                 error: function (error) {
                     reject(_this.convertToResponse(error));
                 },
@@ -561,15 +565,25 @@ var SPRequestExecutorClient = (function () {
                     resolve(_this.convertToResponse(response));
                 },
                 url: url,
-            });
+            };
+            if (options.body) {
+                util_1.Util.extend(requestOptions, { body: options.body });
+            }
+            else {
+                util_1.Util.extend(requestOptions, { binaryStringRequestBody: true });
+            }
+            executor.executeAsync(requestOptions);
         });
     };
     return SPRequestExecutorClient;
 }());
 exports.SPRequestExecutorClient = SPRequestExecutorClient;
 
-},{}],13:[function(require,module,exports){
+},{"../utils/util":43}],12:[function(require,module,exports){
 "use strict";
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
 var util_1 = require("./utils/util");
 var storage_1 = require("./utils/storage");
 var configuration_1 = require("./configuration/configuration");
@@ -582,6 +596,7 @@ exports.storage = new storage_1.PnPClientStorage();
 exports.config = new configuration_1.Settings();
 exports.log = logging_1.Logger;
 exports.setup = pnplibconfig_1.setRuntimeConfig;
+__export(require("./types/index"));
 var Def = {
     config: exports.config,
     log: exports.log,
@@ -593,7 +608,7 @@ var Def = {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = Def;
 
-},{"./configuration/configuration":2,"./configuration/pnplibconfig":3,"./sharepoint/rest/rest":27,"./utils/logging":40,"./utils/storage":41,"./utils/util":42}],14:[function(require,module,exports){
+},{"./configuration/configuration":2,"./configuration/pnplibconfig":3,"./sharepoint/rest/rest":27,"./types/index":39,"./utils/logging":41,"./utils/storage":42,"./utils/util":43}],13:[function(require,module,exports){
 "use strict";
 var storage_1 = require("../../utils/storage");
 var util_1 = require("../../utils/util");
@@ -628,7 +643,9 @@ var CachingParserWrapper = (function () {
     CachingParserWrapper.prototype.parse = function (response) {
         var _this = this;
         return this._parser.parse(response).then(function (data) {
-            _this._cacheOptions.store.put(_this._cacheOptions.key, data, _this._cacheOptions.expiration);
+            if (_this._cacheOptions.store !== null) {
+                _this._cacheOptions.store.put(_this._cacheOptions.key, data, _this._cacheOptions.expiration);
+            }
             return data;
         });
     };
@@ -636,7 +653,7 @@ var CachingParserWrapper = (function () {
 }());
 exports.CachingParserWrapper = CachingParserWrapper;
 
-},{"../../configuration/pnplibconfig":3,"../../utils/storage":41,"../../utils/util":42}],15:[function(require,module,exports){
+},{"../../configuration/pnplibconfig":3,"../../utils/storage":42,"../../utils/util":43}],14:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -663,13 +680,6 @@ var ContentType = (function (_super) {
     function ContentType(baseUrl, path) {
         _super.call(this, baseUrl, path);
     }
-    Object.defineProperty(ContentType.prototype, "descriptionResource", {
-        get: function () {
-            return new queryable_1.Queryable(this, "descriptionResource");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(ContentType.prototype, "fieldLinks", {
         get: function () {
             return new queryable_1.Queryable(this, "fieldLinks");
@@ -684,16 +694,9 @@ var ContentType = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(ContentType.prototype, "nameResource", {
-        get: function () {
-            return new queryable_1.Queryable(this, "nameResource");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(ContentType.prototype, "parent", {
         get: function () {
-            return new queryable_1.Queryable(this, "parent");
+            return new ContentType(this, "parent");
         },
         enumerable: true,
         configurable: true
@@ -705,137 +708,11 @@ var ContentType = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(ContentType.prototype, "description", {
-        get: function () {
-            return new queryable_1.Queryable(this, "description");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "displayFormTemplateName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "displayFormTemplateName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "displayFormUrl", {
-        get: function () {
-            return new queryable_1.Queryable(this, "displayFormUrl");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "documentTemplate", {
-        get: function () {
-            return new queryable_1.Queryable(this, "documentTemplate");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "documentTemplateUrl", {
-        get: function () {
-            return new queryable_1.Queryable(this, "documentTemplateUrl");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "editFormTemplateName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "editFormTemplateName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "editFormUrl", {
-        get: function () {
-            return new queryable_1.Queryable(this, "editFormUrl");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "group", {
-        get: function () {
-            return new queryable_1.Queryable(this, "group");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "hidden", {
-        get: function () {
-            return new queryable_1.Queryable(this, "hidden");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "jsLink", {
-        get: function () {
-            return new queryable_1.Queryable(this, "jsLink");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "name", {
-        get: function () {
-            return new queryable_1.Queryable(this, "name");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "newFormTemplateName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "newFormTemplateName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "newFormUrl", {
-        get: function () {
-            return new queryable_1.Queryable(this, "newFormUrl");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "readOnly", {
-        get: function () {
-            return new queryable_1.Queryable(this, "readOnly");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "schemaXml", {
-        get: function () {
-            return new queryable_1.Queryable(this, "schemaXml");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "scope", {
-        get: function () {
-            return new queryable_1.Queryable(this, "scope");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "sealed", {
-        get: function () {
-            return new queryable_1.Queryable(this, "sealed");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(ContentType.prototype, "stringId", {
-        get: function () {
-            return new queryable_1.Queryable(this, "stringId");
-        },
-        enumerable: true,
-        configurable: true
-    });
     return ContentType;
 }(queryable_1.QueryableInstance));
 exports.ContentType = ContentType;
 
-},{"./queryable":24}],16:[function(require,module,exports){
+},{"./queryable":24}],15:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -853,6 +730,9 @@ var Fields = (function (_super) {
     }
     Fields.prototype.getByTitle = function (title) {
         return new Field(this, "getByTitle('" + title + "')");
+    };
+    Fields.prototype.getByInternalNameOrTitle = function (name) {
+        return new Field(this, "getByInternalNameOrTitle('" + name + "')");
     };
     Fields.prototype.getById = function (id) {
         var f = new Field(this);
@@ -982,202 +862,6 @@ var Field = (function (_super) {
     function Field(baseUrl, path) {
         _super.call(this, baseUrl, path);
     }
-    Object.defineProperty(Field.prototype, "canBeDeleted", {
-        get: function () {
-            return new queryable_1.Queryable(this, "canBeDeleted");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "defaultValue", {
-        get: function () {
-            return new queryable_1.Queryable(this, "defaultValue");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "description", {
-        get: function () {
-            return new queryable_1.Queryable(this, "description");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "direction", {
-        get: function () {
-            return new queryable_1.Queryable(this, "direction");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "enforceUniqueValues", {
-        get: function () {
-            return new queryable_1.Queryable(this, "enforceUniqueValues");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "entityPropertyName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "entityPropertyName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "filterable", {
-        get: function () {
-            return new queryable_1.Queryable(this, "filterable");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "fromBaseType", {
-        get: function () {
-            return new queryable_1.Queryable(this, "fromBaseType");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "group", {
-        get: function () {
-            return new queryable_1.Queryable(this, "group");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "hidden", {
-        get: function () {
-            return new queryable_1.Queryable(this, "hidden");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "id", {
-        get: function () {
-            return new queryable_1.Queryable(this, "id");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "indexed", {
-        get: function () {
-            return new queryable_1.Queryable(this, "indexed");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "internalName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "internalName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "jsLink", {
-        get: function () {
-            return new queryable_1.Queryable(this, "jsLink");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "readOnlyField", {
-        get: function () {
-            return new queryable_1.Queryable(this, "readOnlyField");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "required", {
-        get: function () {
-            return new queryable_1.Queryable(this, "required");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "schemaXml", {
-        get: function () {
-            return new queryable_1.Queryable(this, "schemaXml");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "scope", {
-        get: function () {
-            return new queryable_1.Queryable(this, "scope");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "sealed", {
-        get: function () {
-            return new queryable_1.Queryable(this, "sealed");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "sortable", {
-        get: function () {
-            return new queryable_1.Queryable(this, "sortable");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "staticName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "staticName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "title", {
-        get: function () {
-            return new queryable_1.Queryable(this, "title");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "fieldTypeKind", {
-        get: function () {
-            return new queryable_1.Queryable(this, "fieldTypeKind");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "typeAsString", {
-        get: function () {
-            return new queryable_1.Queryable(this, "typeAsString");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "typeDisplayName", {
-        get: function () {
-            return new queryable_1.Queryable(this, "typeDisplayName");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "typeShortDescription", {
-        get: function () {
-            return new queryable_1.Queryable(this, "typeShortDescription");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "validationFormula", {
-        get: function () {
-            return new queryable_1.Queryable(this, "validationFormula");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Field.prototype, "validationMessage", {
-        get: function () {
-            return new queryable_1.Queryable(this, "validationMessage");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Field.prototype.update = function (properties, fieldType) {
         var _this = this;
         if (fieldType === void 0) { fieldType = "SP.Field"; }
@@ -1219,7 +903,7 @@ var Field = (function (_super) {
 }(queryable_1.QueryableInstance));
 exports.Field = Field;
 
-},{"../../utils/util":42,"./queryable":24,"./types":34}],17:[function(require,module,exports){
+},{"../../utils/util":43,"./queryable":24,"./types":34}],16:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -1268,156 +952,9 @@ var File = (function (_super) {
     function File(baseUrl, path) {
         _super.call(this, baseUrl, path);
     }
-    Object.defineProperty(File.prototype, "author", {
-        get: function () {
-            return new queryable_1.Queryable(this, "author");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "checkedOutByUser", {
-        get: function () {
-            return new queryable_1.Queryable(this, "checkedOutByUser");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "checkInComment", {
-        get: function () {
-            return new queryable_1.Queryable(this, "checkInComment");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "checkOutType", {
-        get: function () {
-            return new queryable_1.Queryable(this, "checkOutType");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "contentTag", {
-        get: function () {
-            return new queryable_1.Queryable(this, "contentTag");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "customizedPageStatus", {
-        get: function () {
-            return new queryable_1.Queryable(this, "customizedPageStatus");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "eTag", {
-        get: function () {
-            return new queryable_1.Queryable(this, "eTag");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "exists", {
-        get: function () {
-            return new queryable_1.Queryable(this, "exists");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "length", {
-        get: function () {
-            return new queryable_1.Queryable(this, "length");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "level", {
-        get: function () {
-            return new queryable_1.Queryable(this, "level");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(File.prototype, "listItemAllFields", {
         get: function () {
             return new items_1.Item(this, "listItemAllFields");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "lockedByUser", {
-        get: function () {
-            return new queryable_1.Queryable(this, "lockedByUser");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "majorVersion", {
-        get: function () {
-            return new queryable_1.Queryable(this, "majorVersion");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "minorVersion", {
-        get: function () {
-            return new queryable_1.Queryable(this, "minorVersion");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "modifiedBy", {
-        get: function () {
-            return new queryable_1.Queryable(this, "modifiedBy");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "name", {
-        get: function () {
-            return new queryable_1.Queryable(this, "name");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "serverRelativeUrl", {
-        get: function () {
-            return new queryable_1.Queryable(this, "serverRelativeUrl");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "timeCreated", {
-        get: function () {
-            return new queryable_1.Queryable(this, "timeCreated");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "timeLastModified", {
-        get: function () {
-            return new queryable_1.Queryable(this, "timeLastModified");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "title", {
-        get: function () {
-            return new queryable_1.Queryable(this, "title");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "uiVersion", {
-        get: function () {
-            return new queryable_1.Queryable(this, "uiVersion");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(File.prototype, "uiVersionLabel", {
-        get: function () {
-            return new queryable_1.Queryable(this, "uiVersionLabel");
         },
         enumerable: true,
         configurable: true
@@ -1508,6 +1045,9 @@ var File = (function (_super) {
     };
     File.prototype.unpublish = function (comment) {
         if (comment === void 0) { comment = ""; }
+        if (comment.length > 1023) {
+            throw new Error("The maximum comment length is 1023 characters.");
+        }
         return new File(this, "unpublish(comment='" + comment + "')").post();
     };
     return File;
@@ -1544,62 +1084,6 @@ var Version = (function (_super) {
     function Version(baseUrl, path) {
         _super.call(this, baseUrl, path);
     }
-    Object.defineProperty(Version.prototype, "checkInComment", {
-        get: function () {
-            return new queryable_1.Queryable(this, "checkInComment");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "created", {
-        get: function () {
-            return new queryable_1.Queryable(this, "created");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "createdBy", {
-        get: function () {
-            return new queryable_1.Queryable(this, "createdBy");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "id", {
-        get: function () {
-            return new queryable_1.Queryable(this, "id");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "isCurrentVersion", {
-        get: function () {
-            return new queryable_1.Queryable(this, "isCurrentVersion");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "size", {
-        get: function () {
-            return new queryable_1.Queryable(this, "size");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "url", {
-        get: function () {
-            return new queryable_1.Queryable(this, "url");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Version.prototype, "versionLabel", {
-        get: function () {
-            return new queryable_1.Queryable(this, "versionLabel");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Version.prototype.delete = function (eTag) {
         if (eTag === void 0) { eTag = "*"; }
         return this.post({
@@ -1635,7 +1119,7 @@ var MoveOperations = exports.MoveOperations;
 })(exports.TemplateFileType || (exports.TemplateFileType = {}));
 var TemplateFileType = exports.TemplateFileType;
 
-},{"./items":20,"./queryable":24}],18:[function(require,module,exports){
+},{"./items":20,"./queryable":24}],17:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -1694,23 +1178,9 @@ var Folder = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(Folder.prototype, "itemCount", {
-        get: function () {
-            return new queryable_1.Queryable(this, "itemCount");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Object.defineProperty(Folder.prototype, "listItemAllFields", {
         get: function () {
             return new items_1.Item(this, "listItemAllFields");
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Folder.prototype, "name", {
-        get: function () {
-            return new queryable_1.Queryable(this, "name");
         },
         enumerable: true,
         configurable: true
@@ -1743,13 +1213,6 @@ var Folder = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(Folder.prototype, "welcomePage", {
-        get: function () {
-            return new queryable_1.Queryable(this, "welcomePage");
-        },
-        enumerable: true,
-        configurable: true
-    });
     Folder.prototype.delete = function (eTag) {
         if (eTag === void 0) { eTag = "*"; }
         return new Folder(this).post({
@@ -1766,7 +1229,7 @@ var Folder = (function (_super) {
 }(queryable_1.QueryableInstance));
 exports.Folder = Folder;
 
-},{"./files":17,"./items":20,"./queryable":24}],19:[function(require,module,exports){
+},{"./files":16,"./items":20,"./queryable":24}],18:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -1797,7 +1260,41 @@ var Form = (function (_super) {
 }(queryable_1.QueryableInstance));
 exports.Form = Form;
 
-},{"./queryable":24}],20:[function(require,module,exports){
+},{"./queryable":24}],19:[function(require,module,exports){
+"use strict";
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
+__export(require("./caching"));
+var files_1 = require("./files");
+exports.CheckinType = files_1.CheckinType;
+exports.WebPartsPersonalizationScope = files_1.WebPartsPersonalizationScope;
+exports.MoveOperations = files_1.MoveOperations;
+exports.TemplateFileType = files_1.TemplateFileType;
+var items_1 = require("./items");
+exports.PagedItemCollection = items_1.PagedItemCollection;
+var odata_1 = require("./odata");
+exports.extractOdataId = odata_1.extractOdataId;
+exports.ODataParserBase = odata_1.ODataParserBase;
+exports.ODataDefaultParser = odata_1.ODataDefaultParser;
+exports.ODataRaw = odata_1.ODataRaw;
+exports.ODataValue = odata_1.ODataValue;
+exports.ODataEntity = odata_1.ODataEntity;
+exports.ODataEntityArray = odata_1.ODataEntityArray;
+var roles_1 = require("./roles");
+exports.RoleDefinitionBindings = roles_1.RoleDefinitionBindings;
+var search_1 = require("./search");
+exports.SearchResult = search_1.SearchResult;
+exports.SortDirection = search_1.SortDirection;
+exports.ReorderingRuleMatchType = search_1.ReorderingRuleMatchType;
+exports.QueryPropertyValueType = search_1.QueryPropertyValueType;
+var site_1 = require("./site");
+exports.Site = site_1.Site;
+__export(require("./types"));
+var webs_1 = require("./webs");
+exports.Web = webs_1.Web;
+
+},{"./caching":13,"./files":16,"./items":20,"./odata":23,"./roles":28,"./search":29,"./site":30,"./types":34,"./webs":38}],20:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -2005,7 +1502,7 @@ var PagedItemCollection = (function () {
 }());
 exports.PagedItemCollection = PagedItemCollection;
 
-},{"../../utils/util":42,"./contenttypes":15,"./folders":18,"./odata":23,"./queryable":24,"./queryablesecurable":25}],21:[function(require,module,exports){
+},{"../../utils/util":43,"./contenttypes":14,"./folders":17,"./odata":23,"./queryable":24,"./queryablesecurable":25}],21:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -2051,10 +1548,7 @@ var Lists = (function (_super) {
             "Title": title,
         }, additionalSettings));
         return this.post({ body: postBody }).then(function (data) {
-            return {
-                list: _this.getByTitle(title),
-                data: data
-            };
+            return { data: data, list: _this.getByTitle(title) };
         });
     };
     Lists.prototype.ensure = function (title, description, template, enableContentTypes, additionalSettings) {
@@ -2068,9 +1562,9 @@ var Lists = (function (_super) {
         }
         return new Promise(function (resolve, reject) {
             var list = _this.getByTitle(title);
-            list.get().then(function (d) { return resolve({ created: false, list: list, data: d }); }).catch(function () {
+            list.get().then(function (d) { return resolve({ created: false, data: d, list: list }); }).catch(function () {
                 _this.add(title, description, template, enableContentTypes, additionalSettings).then(function (r) {
-                    resolve({ created: true, list: _this.getByTitle(title), data: r.data });
+                    resolve({ created: true, data: r.data, list: _this.getByTitle(title) });
                 });
             }).catch(function (e) { return reject(e); });
         });
@@ -2278,7 +1772,7 @@ var List = (function (_super) {
 }(queryablesecurable_1.QueryableSecurable));
 exports.List = List;
 
-},{"../../utils/util":42,"./contenttypes":15,"./fields":16,"./forms":19,"./items":20,"./odata":23,"./queryable":24,"./queryablesecurable":25,"./usercustomactions":35,"./views":37}],22:[function(require,module,exports){
+},{"../../utils/util":43,"./contenttypes":14,"./fields":15,"./forms":18,"./items":20,"./odata":23,"./queryable":24,"./queryablesecurable":25,"./usercustomactions":35,"./views":37}],22:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -2286,8 +1780,8 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var queryable_1 = require("./queryable");
-var quickLaunch_1 = require("./quickLaunch");
-var topNavigationBar_1 = require("./topNavigationBar");
+var quicklaunch_1 = require("./quicklaunch");
+var topnavigationbar_1 = require("./topnavigationbar");
 var Navigation = (function (_super) {
     __extends(Navigation, _super);
     function Navigation(baseUrl) {
@@ -2295,14 +1789,14 @@ var Navigation = (function (_super) {
     }
     Object.defineProperty(Navigation.prototype, "quicklaunch", {
         get: function () {
-            return new quickLaunch_1.QuickLaunch(this);
+            return new quicklaunch_1.QuickLaunch(this);
         },
         enumerable: true,
         configurable: true
     });
     Object.defineProperty(Navigation.prototype, "topNavigationBar", {
         get: function () {
-            return new topNavigationBar_1.TopNavigationBar(this);
+            return new topnavigationbar_1.TopNavigationBar(this);
         },
         enumerable: true,
         configurable: true
@@ -2311,7 +1805,7 @@ var Navigation = (function (_super) {
 }(queryable_1.Queryable));
 exports.Navigation = Navigation;
 
-},{"./queryable":24,"./quickLaunch":26,"./topNavigationBar":33}],23:[function(require,module,exports){
+},{"./queryable":24,"./quicklaunch":26,"./topnavigationbar":33}],23:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -2332,7 +1826,7 @@ function extractOdataId(candidate) {
     else {
         logging_1.Logger.log({
             data: candidate,
-            level: logging_1.Logger.LogLevel.Error,
+            level: logging_1.LogLevel.Error,
             message: "Could not extract odata id in object, you may be using nometadata. Object data logged to logger.",
         });
         throw new Error("Could not extract odata id in object, you may be using nometadata. Object data logged to logger.");
@@ -2429,7 +1923,7 @@ function getEntityUrl(entity) {
         return util_1.Util.combinePaths("_api", entity["odata.editLink"]);
     }
     else {
-        logging_1.Logger.write("No uri information found in ODataEntity parsing, chaining will fail for this object.", logging_1.Logger.LogLevel.Warning);
+        logging_1.Logger.write("No uri information found in ODataEntity parsing, chaining will fail for this object.", logging_1.LogLevel.Warning);
         return "";
     }
 }
@@ -2477,17 +1971,19 @@ var ODataBatch = (function () {
     };
     ODataBatch.prototype.execute = function () {
         var _this = this;
-        if (this._batchDepCount > 0) {
-            setTimeout(function () { return _this.execute(); }, 100);
-        }
-        else {
-            this.executeImpl();
-        }
+        return new Promise(function (resolve, reject) {
+            if (_this._batchDepCount > 0) {
+                setTimeout(function () { return _this.execute(); }, 100);
+            }
+            else {
+                _this.executeImpl().then(function () { return resolve(); }).catch(reject);
+            }
+        });
     };
     ODataBatch.prototype.executeImpl = function () {
         var _this = this;
         if (this._requests.length < 1) {
-            return;
+            return new Promise(function (r) { return r(); });
         }
         var batchBody = [];
         var currentChangeSetId = "";
@@ -2545,28 +2041,31 @@ var ODataBatch = (function () {
             currentChangeSetId = "";
         }
         batchBody.push("--batch_" + this._batchId + "--\n");
-        var batchHeaders = new Headers();
-        batchHeaders.append("Content-Type", "multipart/mixed; boundary=batch_" + this._batchId);
+        var batchHeaders = {
+            "Content-Type": "multipart/mixed; boundary=batch_" + this._batchId,
+        };
         var batchOptions = {
             "body": batchBody.join(""),
             "headers": batchHeaders,
         };
         var client = new httpclient_1.HttpClient();
-        client.post(util_1.Util.makeUrlAbsolute("/_api/$batch"), batchOptions)
+        return client.post(util_1.Util.makeUrlAbsolute("/_api/$batch"), batchOptions)
             .then(function (r) { return r.text(); })
             .then(this._parseResponse)
             .then(function (responses) {
             if (responses.length !== _this._requests.length) {
                 throw new Error("Could not properly parse responses to match requests in batch.");
             }
+            var resolutions = [];
             for (var i = 0; i < responses.length; i++) {
                 var request = _this._requests[i];
                 var response = responses[i];
                 if (!response.ok) {
                     request.reject(new Error(response.statusText));
                 }
-                request.parser.parse(response).then(request.resolve).catch(request.reject);
+                resolutions.push(request.parser.parse(response).then(request.resolve).catch(request.reject));
             }
+            return Promise.all(resolutions);
         });
     };
     ODataBatch.prototype._parseResponse = function (body) {
@@ -2633,7 +2132,7 @@ var ODataBatch = (function () {
 }());
 exports.ODataBatch = ODataBatch;
 
-},{"../../configuration/pnplibconfig":3,"../../net/httpclient":10,"../../utils/logging":40,"../../utils/util":42}],24:[function(require,module,exports){
+},{"../../configuration/pnplibconfig":3,"../../net/httpclient":9,"../../utils/logging":41,"../../utils/util":43}],24:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -2642,7 +2141,7 @@ var __extends = (this && this.__extends) || function (d, b) {
 };
 var util_1 = require("../../utils/util");
 var collections_1 = require("../../collections/collections");
-var HttpClient_1 = require("../../net/HttpClient");
+var httpclient_1 = require("../../net/httpclient");
 var odata_1 = require("./odata");
 var caching_1 = require("./caching");
 var pnplibconfig_1 = require("../../configuration/pnplibconfig");
@@ -2781,14 +2280,16 @@ var Queryable = (function () {
             if (typeof this._cachingOptions !== "undefined") {
                 options = util_1.Util.extend(options, this._cachingOptions);
             }
-            var data_1 = options.store.get(options.key);
-            if (data_1 !== null) {
-                return new Promise(function (resolve) { return resolve(data_1); });
+            if (options.store !== null) {
+                var data_1 = options.store.get(options.key);
+                if (data_1 !== null) {
+                    return new Promise(function (resolve) { return resolve(data_1); });
+                }
             }
             parser = new caching_1.CachingParserWrapper(parser, options);
         }
         if (this._batch === null) {
-            var client = new HttpClient_1.HttpClient();
+            var client = new httpclient_1.HttpClient();
             return client.get(this.toUrlAndQuery(), getOptions).then(function (response) {
                 if (!response.ok) {
                     throw "Error making GET request: " + response.statusText;
@@ -2802,7 +2303,7 @@ var Queryable = (function () {
     };
     Queryable.prototype.postImpl = function (postOptions, parser) {
         if (this._batch === null) {
-            var client = new HttpClient_1.HttpClient();
+            var client = new httpclient_1.HttpClient();
             return client.post(this.toUrlAndQuery(), postOptions).then(function (response) {
                 if (!response.ok) {
                     throw "Error making POST request: " + response.statusText;
@@ -2847,10 +2348,10 @@ var QueryableCollection = (function (_super) {
         return this;
     };
     QueryableCollection.prototype.orderBy = function (orderBy, ascending) {
-        if (ascending === void 0) { ascending = false; }
+        if (ascending === void 0) { ascending = true; }
         var keys = this._query.getKeys();
         var query = [];
-        var asc = ascending ? " asc" : "";
+        var asc = ascending ? " asc" : " desc";
         for (var i = 0; i < keys.length; i++) {
             if (keys[i] === "$orderby") {
                 query.push(this._query.get("$orderby"));
@@ -2897,7 +2398,7 @@ var QueryableInstance = (function (_super) {
 }(Queryable));
 exports.QueryableInstance = QueryableInstance;
 
-},{"../../collections/collections":1,"../../configuration/pnplibconfig":3,"../../net/HttpClient":7,"../../utils/util":42,"./caching":14,"./odata":23}],25:[function(require,module,exports){
+},{"../../collections/collections":1,"../../configuration/pnplibconfig":3,"../../net/httpclient":9,"../../utils/util":43,"./caching":13,"./odata":23}],25:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3049,7 +2550,7 @@ var Rest = (function () {
 }());
 exports.Rest = Rest;
 
-},{"../../utils/util":42,"./odata":23,"./search":29,"./site":30,"./userprofiles":36,"./webs":38}],28:[function(require,module,exports){
+},{"../../utils/util":43,"./odata":23,"./search":29,"./site":30,"./userprofiles":36,"./webs":38}],28:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3151,7 +2652,7 @@ var RoleDefinition = (function (_super) {
     }
     RoleDefinition.prototype.update = function (properties) {
         var _this = this;
-        if (typeof properties.hasOwnProperty("BasePermissions")) {
+        if (typeof properties.hasOwnProperty("BasePermissions") !== "undefined") {
             properties["BasePermissions"] = util_1.Util.extend({ __metadata: { type: "SP.BasePermissions" } }, properties["BasePermissions"]);
         }
         var postBody = JSON.stringify(util_1.Util.extend({
@@ -3194,7 +2695,7 @@ var RoleDefinitionBindings = (function (_super) {
 }(queryable_1.QueryableCollection));
 exports.RoleDefinitionBindings = RoleDefinitionBindings;
 
-},{"../../utils/util":42,"./queryable":24,"./sitegroups":31}],29:[function(require,module,exports){
+},{"../../utils/util":43,"./queryable":24,"./sitegroups":31}],29:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3230,9 +2731,7 @@ var Search = (function (_super) {
             formattedBody.ReorderingRules = { results: query.ReorderingRules };
         }
         var postBody = JSON.stringify({ request: formattedBody });
-        return this.post({ body: postBody }).then(function (data) {
-            return new SearchResults(data);
-        });
+        return this.post({ body: postBody }).then(function (data) { return new SearchResults(data); });
     };
     return Search;
 }(queryable_1.QueryableInstance));
@@ -3441,7 +2940,7 @@ var SiteGroup = (function (_super) {
             body: JSON.stringify(postBody),
             headers: {
                 "X-HTTP-Method": "MERGE",
-            }
+            },
         }).then(function (data) {
             var retGroup = _this;
             if (properties.hasOwnProperty("Title")) {
@@ -3457,7 +2956,7 @@ var SiteGroup = (function (_super) {
 }(queryable_1.QueryableInstance));
 exports.SiteGroup = SiteGroup;
 
-},{"../../utils/util":42,"./queryable":24,"./siteusers":32}],32:[function(require,module,exports){
+},{"../../utils/util":43,"./queryable":24,"./siteusers":32}],32:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3540,7 +3039,7 @@ var SiteUser = (function (_super) {
 }(queryable_1.QueryableInstance));
 exports.SiteUser = SiteUser;
 
-},{"../../utils/util":42,"./queryable":24,"./sitegroups":31}],33:[function(require,module,exports){
+},{"../../utils/util":43,"./queryable":24,"./sitegroups":31}],33:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3724,7 +3223,7 @@ var UserCustomAction = (function (_super) {
 }(queryable_1.QueryableInstance));
 exports.UserCustomAction = UserCustomAction;
 
-},{"../../utils/util":42,"./queryable":24}],36:[function(require,module,exports){
+},{"../../utils/util":43,"./queryable":24}],36:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3908,7 +3407,7 @@ var ProfileLoader = (function (_super) {
     return ProfileLoader;
 }(queryable_1.Queryable));
 
-},{"../../utils/files":39,"./odata":23,"./queryable":24}],37:[function(require,module,exports){
+},{"../../utils/files":40,"./odata":23,"./queryable":24}],37:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -3937,12 +3436,12 @@ var Views = (function (_super) {
         var postBody = JSON.stringify(util_1.Util.extend({
             "__metadata": { "type": "SP.View" },
             "Title": title,
-            "PersonalView": personalView
+            "PersonalView": personalView,
         }, additionalSettings));
         return this.postAs({ body: postBody }).then(function (data) {
             return {
+                data: data,
                 view: _this.getById(data.Id),
-                data: data
             };
         });
     };
@@ -4023,7 +3522,7 @@ var ViewFields = (function (_super) {
 }(queryable_1.QueryableCollection));
 exports.ViewFields = ViewFields;
 
-},{"../../utils/util":42,"./queryable":24}],38:[function(require,module,exports){
+},{"../../utils/util":43,"./queryable":24}],38:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -4170,6 +3669,9 @@ var Web = (function (_super) {
     Web.prototype.getFileByServerRelativeUrl = function (fileRelativeUrl) {
         return new files_1.File(this, "getFileByServerRelativeUrl('" + fileRelativeUrl + "')");
     };
+    Web.prototype.getList = function (listRelativeUrl) {
+        return new lists_2.List(this, "getList('" + listRelativeUrl + "')");
+    };
     Web.prototype.update = function (properties) {
         var _this = this;
         var postBody = JSON.stringify(util_1.Util.extend({
@@ -4260,7 +3762,21 @@ var Web = (function (_super) {
 }(queryablesecurable_1.QueryableSecurable));
 exports.Web = Web;
 
-},{"../../utils/util":42,"./contenttypes":15,"./fields":16,"./files":17,"./folders":18,"./lists":21,"./navigation":22,"./odata":23,"./queryable":24,"./queryablesecurable":25,"./roles":28,"./sitegroups":31,"./siteusers":32,"./usercustomactions":35}],39:[function(require,module,exports){
+},{"../../utils/util":43,"./contenttypes":14,"./fields":15,"./files":16,"./folders":17,"./lists":21,"./navigation":22,"./odata":23,"./queryable":24,"./queryablesecurable":25,"./roles":28,"./sitegroups":31,"./siteusers":32,"./usercustomactions":35}],39:[function(require,module,exports){
+"use strict";
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
+__export(require("../sharepoint/rest/index"));
+var httpclient_1 = require("../net/httpclient");
+exports.HttpClient = httpclient_1.HttpClient;
+var collections_1 = require("../collections/collections");
+exports.Dictionary = collections_1.Dictionary;
+var util_1 = require("../utils/util");
+exports.Util = util_1.Util;
+__export(require("../utils/logging"));
+
+},{"../collections/collections":1,"../net/httpclient":9,"../sharepoint/rest/index":19,"../utils/logging":41,"../utils/util":43}],40:[function(require,module,exports){
 "use strict";
 function readBlobAsText(blob) {
     return readBlobAs(blob, "string");
@@ -4287,8 +3803,16 @@ function readBlobAs(blob, mode) {
     });
 }
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 "use strict";
+(function (LogLevel) {
+    LogLevel[LogLevel["Verbose"] = 0] = "Verbose";
+    LogLevel[LogLevel["Info"] = 1] = "Info";
+    LogLevel[LogLevel["Warning"] = 2] = "Warning";
+    LogLevel[LogLevel["Error"] = 3] = "Error";
+    LogLevel[LogLevel["Off"] = 99] = "Off";
+})(exports.LogLevel || (exports.LogLevel = {}));
+var LogLevel = exports.LogLevel;
 var Logger = (function () {
     function Logger() {
     }
@@ -4332,7 +3856,7 @@ var Logger = (function () {
         configurable: true
     });
     Logger.write = function (message, level) {
-        if (level === void 0) { level = Logger.LogLevel.Verbose; }
+        if (level === void 0) { level = LogLevel.Verbose; }
         Logger.instance.log({ level: level, message: message });
     };
     Logger.log = function (entry) {
@@ -4346,7 +3870,7 @@ var Logger = (function () {
 exports.Logger = Logger;
 var LoggerImpl = (function () {
     function LoggerImpl(activeLogLevel, subscribers) {
-        if (activeLogLevel === void 0) { activeLogLevel = Logger.LogLevel.Warning; }
+        if (activeLogLevel === void 0) { activeLogLevel = LogLevel.Warning; }
         if (subscribers === void 0) { subscribers = []; }
         this.activeLogLevel = activeLogLevel;
         this.subscribers = subscribers;
@@ -4367,7 +3891,7 @@ var LoggerImpl = (function () {
         configurable: true
     });
     LoggerImpl.prototype.write = function (message, level) {
-        if (level === void 0) { level = Logger.LogLevel.Verbose; }
+        if (level === void 0) { level = LogLevel.Verbose; }
         this.log({ level: level, message: message });
     };
     LoggerImpl.prototype.log = function (entry) {
@@ -4389,92 +3913,81 @@ var LoggerImpl = (function () {
     };
     return LoggerImpl;
 }());
-var Logger;
-(function (Logger) {
-    (function (LogLevel) {
-        LogLevel[LogLevel["Verbose"] = 0] = "Verbose";
-        LogLevel[LogLevel["Info"] = 1] = "Info";
-        LogLevel[LogLevel["Warning"] = 2] = "Warning";
-        LogLevel[LogLevel["Error"] = 3] = "Error";
-        LogLevel[LogLevel["Off"] = 99] = "Off";
-    })(Logger.LogLevel || (Logger.LogLevel = {}));
-    var LogLevel = Logger.LogLevel;
-    var ConsoleListener = (function () {
-        function ConsoleListener() {
+var ConsoleListener = (function () {
+    function ConsoleListener() {
+    }
+    ConsoleListener.prototype.log = function (entry) {
+        var msg = this.format(entry);
+        switch (entry.level) {
+            case LogLevel.Verbose:
+            case LogLevel.Info:
+                console.log(msg);
+                break;
+            case LogLevel.Warning:
+                console.warn(msg);
+                break;
+            case LogLevel.Error:
+                console.error(msg);
+                break;
         }
-        ConsoleListener.prototype.log = function (entry) {
-            var msg = this.format(entry);
-            switch (entry.level) {
-                case LogLevel.Verbose:
-                case LogLevel.Info:
-                    console.log(msg);
-                    break;
-                case LogLevel.Warning:
-                    console.warn(msg);
-                    break;
-                case LogLevel.Error:
-                    console.error(msg);
-                    break;
+    };
+    ConsoleListener.prototype.format = function (entry) {
+        return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
+    };
+    return ConsoleListener;
+}());
+exports.ConsoleListener = ConsoleListener;
+var AzureInsightsListener = (function () {
+    function AzureInsightsListener(azureInsightsInstrumentationKey) {
+        this.azureInsightsInstrumentationKey = azureInsightsInstrumentationKey;
+        var appInsights = window["appInsights"] || function (config) {
+            function r(config) {
+                t[config] = function () {
+                    var i = arguments;
+                    t.queue.push(function () { t[config].apply(t, i); });
+                };
             }
-        };
-        ConsoleListener.prototype.format = function (entry) {
-            return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
-        };
-        return ConsoleListener;
-    }());
-    Logger.ConsoleListener = ConsoleListener;
-    var AzureInsightsListener = (function () {
-        function AzureInsightsListener(azureInsightsInstrumentationKey) {
-            this.azureInsightsInstrumentationKey = azureInsightsInstrumentationKey;
-            var appInsights = window["appInsights"] || function (config) {
-                function r(config) {
-                    t[config] = function () {
-                        var i = arguments;
-                        t.queue.push(function () { t[config].apply(t, i); });
-                    };
-                }
-                var t = { config: config }, u = document, e = window, o = "script", s = u.createElement(o), i, f;
-                for (s.src = config.url || "//az416426.vo.msecnd.net/scripts/a/ai.0.js", u.getElementsByTagName(o)[0].parentNode.appendChild(s), t.cookie = u.cookie, t.queue = [], i = ["Event", "Exception", "Metric", "PageView", "Trace"]; i.length;) {
-                    r("track" + i.pop());
-                }
-                return r("setAuthenticatedUserContext"), r("clearAuthenticatedUserContext"), config.disableExceptionTracking || (i = "onerror", r("_" + i), f = e[i], e[i] = function (config, r, u, e, o) {
-                    var s = f && f(config, r, u, e, o);
-                    return s !== !0 && t["_" + i](config, r, u, e, o), s;
-                }), t;
-            }({
-                instrumentationKey: this.azureInsightsInstrumentationKey
-            });
-            window["appInsights"] = appInsights;
+            var t = { config: config }, u = document, e = window, o = "script", s = u.createElement(o), i, f;
+            for (s.src = config.url || "//az416426.vo.msecnd.net/scripts/a/ai.0.js", u.getElementsByTagName(o)[0].parentNode.appendChild(s), t.cookie = u.cookie, t.queue = [], i = ["Event", "Exception", "Metric", "PageView", "Trace"]; i.length;) {
+                r("track" + i.pop());
+            }
+            return r("setAuthenticatedUserContext"), r("clearAuthenticatedUserContext"), config.disableExceptionTracking || (i = "onerror", r("_" + i), f = e[i], e[i] = function (config, r, u, e, o) {
+                var s = f && f(config, r, u, e, o);
+                return s !== !0 && t["_" + i](config, r, u, e, o), s;
+            }), t;
+        }({
+            instrumentationKey: this.azureInsightsInstrumentationKey
+        });
+        window["appInsights"] = appInsights;
+    }
+    AzureInsightsListener.prototype.log = function (entry) {
+        var ai = window["appInsights"];
+        var msg = this.format(entry);
+        if (entry.level === LogLevel.Error) {
+            ai.trackException(msg);
         }
-        AzureInsightsListener.prototype.log = function (entry) {
-            var ai = window["appInsights"];
-            var msg = this.format(entry);
-            if (entry.level === LogLevel.Error) {
-                ai.trackException(msg);
-            }
-            else {
-                ai.trackEvent(msg);
-            }
-        };
-        AzureInsightsListener.prototype.format = function (entry) {
-            return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
-        };
-        return AzureInsightsListener;
-    }());
-    Logger.AzureInsightsListener = AzureInsightsListener;
-    var FunctionListener = (function () {
-        function FunctionListener(method) {
-            this.method = method;
+        else {
+            ai.trackEvent(msg);
         }
-        FunctionListener.prototype.log = function (entry) {
-            this.method(entry);
-        };
-        return FunctionListener;
-    }());
-    Logger.FunctionListener = FunctionListener;
-})(Logger = exports.Logger || (exports.Logger = {}));
+    };
+    AzureInsightsListener.prototype.format = function (entry) {
+        return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
+    };
+    return AzureInsightsListener;
+}());
+exports.AzureInsightsListener = AzureInsightsListener;
+var FunctionListener = (function () {
+    function FunctionListener(method) {
+        this.method = method;
+    }
+    FunctionListener.prototype.log = function (entry) {
+        this.method(entry);
+    };
+    return FunctionListener;
+}());
+exports.FunctionListener = FunctionListener;
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 "use strict";
 var util_1 = require("./util");
 var PnPClientStorageWrapper = (function () {
@@ -4490,7 +4003,7 @@ var PnPClientStorageWrapper = (function () {
         }
         var o = this.store.getItem(key);
         if (o == null) {
-            return o;
+            return null;
         }
         var persistable = JSON.parse(o);
         if (new Date(persistable.expiration) <= new Date()) {
@@ -4561,7 +4074,7 @@ var PnPClientStorage = (function () {
 }());
 exports.PnPClientStorage = PnPClientStorage;
 
-},{"./util":42}],42:[function(require,module,exports){
+},{"./util":43}],43:[function(require,module,exports){
 (function (global){
 "use strict";
 var Util = (function () {
@@ -4736,7 +4249,7 @@ exports.Util = Util;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
-},{}]},{},[13])(13)
+},{}]},{},[12])(12)
 });
 
 

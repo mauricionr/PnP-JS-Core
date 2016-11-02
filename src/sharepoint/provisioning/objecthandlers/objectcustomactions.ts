@@ -1,7 +1,7 @@
 "use strict";
 
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
-import { ICustomAction } from "../schema/icustomaction";
+import { ObjectHandlerBase } from "./objecthandlerbase";
+import { ICustomAction } from "../schema/ICustomAction";
 
 /**
  * Describes the Custom Actions Object Handler

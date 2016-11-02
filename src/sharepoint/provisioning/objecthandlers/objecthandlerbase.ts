@@ -1,6 +1,6 @@
 "use strict";
 
-import { HttpClient } from "../../../net/HttpClient";
+import { HttpClient } from "../../../net/httpclient";
 import { Logger } from "../../../utils/logging";
 
 /**

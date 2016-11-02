@@ -1,5 +1,5 @@
 /**
- * sp-pnp-js v1.0.3 - A reusable JavaScript library targeting SharePoint client-side development.
+ * sp-pnp-js v1.0.5 - A reusable JavaScript library targeting SharePoint client-side development.
  * MIT (https://github.com/OfficeDev/PnP-JS-Core/blob/master/LICENSE)
  * Copyright (c) 2016 Microsoft
  * docs: http://officedev.github.io/PnP-JS-Core
@@ -76,7 +76,8 @@ var Dictionary = (function () {
 }());
 exports.Dictionary = Dictionary;
 
-},{"../utils/util":24}],2:[function(require,module,exports){
+},{"../utils/util":23}],2:[function(require,module,exports){
+(function (global){
 "use strict";
 var RuntimeConfigImpl = (function () {
     function RuntimeConfigImpl() {
@@ -106,6 +107,9 @@ var RuntimeConfigImpl = (function () {
             this._useNodeClient = true;
             this._useSPRequestExecutor = false;
             this._nodeClientData = config.nodeClientOptions;
+            global._spPageContextInfo = {
+                webAbsoluteUrl: config.nodeClientOptions.siteUrl,
+            };
         }
     };
     Object.defineProperty(RuntimeConfigImpl.prototype, "headers", {
@@ -167,7 +171,78 @@ function setRuntimeConfig(config) {
 }
 exports.setRuntimeConfig = setRuntimeConfig;
 
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],3:[function(require,module,exports){
+"use strict";
+var collections_1 = require("../collections/collections");
+var util_1 = require("../utils/util");
+var odata_1 = require("../sharepoint/rest/odata");
+var CachedDigest = (function () {
+    function CachedDigest() {
+    }
+    return CachedDigest;
+}());
+exports.CachedDigest = CachedDigest;
+var DigestCache = (function () {
+    function DigestCache(_httpClient, _digests) {
+        if (_digests === void 0) { _digests = new collections_1.Dictionary(); }
+        this._httpClient = _httpClient;
+        this._digests = _digests;
+    }
+    DigestCache.prototype.getDigest = function (webUrl) {
+        var self = this;
+        var cachedDigest = this._digests.get(webUrl);
+        if (cachedDigest !== null) {
+            var now = new Date();
+            if (now < cachedDigest.expiration) {
+                return Promise.resolve(cachedDigest.value);
+            }
+        }
+        var url = util_1.Util.combinePaths(webUrl, "/_api/contextinfo");
+        return self._httpClient.fetchRaw(url, {
+            cache: "no-cache",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json;odata=verbose",
+                "Content-type": "application/json;odata=verbose;charset=utf-8",
+            },
+            method: "POST",
+        }).then(function (response) {
+            var parser = new odata_1.ODataDefaultParser();
+            return parser.parse(response).then(function (d) { return d.GetContextWebInformation; });
+        }).then(function (data) {
+            var newCachedDigest = new CachedDigest();
+            newCachedDigest.value = data.FormDigestValue;
+            var seconds = data.FormDigestTimeoutSeconds;
+            var expiration = new Date();
+            expiration.setTime(expiration.getTime() + 1000 * seconds);
+            newCachedDigest.expiration = expiration;
+            self._digests.add(webUrl, newCachedDigest);
+            return newCachedDigest.value;
+        });
+    };
+    DigestCache.prototype.clear = function () {
+        this._digests.clear();
+    };
+    return DigestCache;
+}());
+exports.DigestCache = DigestCache;
+
+},{"../collections/collections":1,"../sharepoint/rest/odata":21,"../utils/util":23}],4:[function(require,module,exports){
+(function (global){
+"use strict";
+var FetchClient = (function () {
+    function FetchClient() {
+    }
+    FetchClient.prototype.fetch = function (url, options) {
+        return global.fetch(url, options);
+    };
+    return FetchClient;
+}());
+exports.FetchClient = FetchClient;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],5:[function(require,module,exports){
 "use strict";
 var fetchclient_1 = require("./fetchclient");
 var digestcache_1 = require("./digestcache");
@@ -194,7 +269,7 @@ var HttpClient = (function () {
             headers.append("Content-Type", "application/json;odata=verbose;charset=utf-8");
         }
         if (!headers.has("X-ClientService-ClientTag")) {
-            headers.append("X-ClientService-ClientTag", "SharePoint.PnP.JavaScriptCore");
+            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.5");
         }
         opts = util_1.Util.extend(opts, { headers: headers });
         if (opts.method && opts.method.toUpperCase() !== "GET") {
@@ -278,79 +353,7 @@ var HttpClient = (function () {
 }());
 exports.HttpClient = HttpClient;
 
-},{"../configuration/pnplibconfig":2,"../utils/util":24,"./digestcache":4,"./fetchclient":5,"./nodefetchclient":7,"./sprequestexecutorclient":8}],4:[function(require,module,exports){
-"use strict";
-var collections_1 = require("../collections/collections");
-var util_1 = require("../utils/util");
-var odata_1 = require("../sharepoint/rest/odata");
-var CachedDigest = (function () {
-    function CachedDigest() {
-    }
-    return CachedDigest;
-}());
-exports.CachedDigest = CachedDigest;
-var DigestCache = (function () {
-    function DigestCache(_httpClient, _digests) {
-        if (_digests === void 0) { _digests = new collections_1.Dictionary(); }
-        this._httpClient = _httpClient;
-        this._digests = _digests;
-    }
-    DigestCache.prototype.getDigest = function (webUrl) {
-        var self = this;
-        var cachedDigest = this._digests.get(webUrl);
-        if (cachedDigest !== null) {
-            var now = new Date();
-            if (now < cachedDigest.expiration) {
-                return Promise.resolve(cachedDigest.value);
-            }
-        }
-        var url = util_1.Util.combinePaths(webUrl, "/_api/contextinfo");
-        return self._httpClient.fetchRaw(url, {
-            cache: "no-cache",
-            credentials: "same-origin",
-            headers: {
-                "Accept": "application/json;odata=verbose",
-                "Content-type": "application/json;odata=verbose;charset=utf-8",
-            },
-            method: "POST",
-        }).then(function (response) {
-            var parser = new odata_1.ODataDefaultParser();
-            return parser.parse(response).then(function (d) { return d.GetContextWebInformation; });
-        }).then(function (data) {
-            var newCachedDigest = new CachedDigest();
-            newCachedDigest.value = data.FormDigestValue;
-            var seconds = data.FormDigestTimeoutSeconds;
-            var expiration = new Date();
-            expiration.setTime(expiration.getTime() + 1000 * seconds);
-            newCachedDigest.expiration = expiration;
-            self._digests.add(webUrl, newCachedDigest);
-            return newCachedDigest.value;
-        });
-    };
-    DigestCache.prototype.clear = function () {
-        this._digests.clear();
-    };
-    return DigestCache;
-}());
-exports.DigestCache = DigestCache;
-
-},{"../collections/collections":1,"../sharepoint/rest/odata":22,"../utils/util":24}],5:[function(require,module,exports){
-(function (global){
-"use strict";
-var FetchClient = (function () {
-    function FetchClient() {
-    }
-    FetchClient.prototype.fetch = function (url, options) {
-        return global.fetch(url, options);
-    };
-    return FetchClient;
-}());
-exports.FetchClient = FetchClient;
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],6:[function(require,module,exports){
-arguments[4][3][0].apply(exports,arguments)
-},{"../configuration/pnplibconfig":2,"../utils/util":24,"./digestcache":4,"./fetchclient":5,"./nodefetchclient":7,"./sprequestexecutorclient":8,"dup":3}],7:[function(require,module,exports){
+},{"../configuration/pnplibconfig":2,"../utils/util":23,"./digestcache":3,"./fetchclient":4,"./nodefetchclient":6,"./sprequestexecutorclient":7}],6:[function(require,module,exports){
 "use strict";
 var NodeFetchClient = (function () {
     function NodeFetchClient(siteUrl, _clientId, _clientSecret, _realm) {
@@ -367,8 +370,9 @@ var NodeFetchClient = (function () {
 }());
 exports.NodeFetchClient = NodeFetchClient;
 
-},{}],8:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 "use strict";
+var util_1 = require("../utils/util");
 var SPRequestExecutorClient = (function () {
     function SPRequestExecutorClient() {
         this.convertToResponse = function (spResponse) {
@@ -404,8 +408,7 @@ var SPRequestExecutorClient = (function () {
             headers = options.headers;
         }
         return new Promise(function (resolve, reject) {
-            executor.executeAsync({
-                body: options.body,
+            var requestOptions = {
                 error: function (error) {
                     reject(_this.convertToResponse(error));
                 },
@@ -415,14 +418,21 @@ var SPRequestExecutorClient = (function () {
                     resolve(_this.convertToResponse(response));
                 },
                 url: url,
-            });
+            };
+            if (options.body) {
+                util_1.Util.extend(requestOptions, { body: options.body });
+            }
+            else {
+                util_1.Util.extend(requestOptions, { binaryStringRequestBody: true });
+            }
+            executor.executeAsync(requestOptions);
         });
     };
     return SPRequestExecutorClient;
 }());
 exports.SPRequestExecutorClient = SPRequestExecutorClient;
 
-},{}],9:[function(require,module,exports){
+},{"../utils/util":23}],8:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -430,7 +440,7 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var util_1 = require("../util");
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectComposedLook = (function (_super) {
     __extends(ObjectComposedLook, _super);
     function ObjectComposedLook() {
@@ -457,17 +467,17 @@ var ObjectComposedLook = (function (_super) {
         });
     };
     return ObjectComposedLook;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectComposedLook = ObjectComposedLook;
 
-},{"../util":21,"./ObjectHandlerBase":13}],10:[function(require,module,exports){
+},{"../util":20,"./objecthandlerbase":12}],9:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectCustomActions = (function (_super) {
     __extends(ObjectCustomActions, _super);
     function ObjectCustomActions() {
@@ -546,17 +556,17 @@ var ObjectCustomActions = (function (_super) {
         });
     };
     return ObjectCustomActions;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectCustomActions = ObjectCustomActions;
 
-},{"./ObjectHandlerBase":13}],11:[function(require,module,exports){
+},{"./objecthandlerbase":12}],10:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectFeatures = (function (_super) {
     __extends(ObjectFeatures, _super);
     function ObjectFeatures() {
@@ -589,10 +599,10 @@ var ObjectFeatures = (function (_super) {
         });
     };
     return ObjectFeatures;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectFeatures = ObjectFeatures;
 
-},{"./ObjectHandlerBase":13}],12:[function(require,module,exports){
+},{"./objecthandlerbase":12}],11:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -601,7 +611,7 @@ var __extends = (this && this.__extends) || function (d, b) {
 };
 var CoreUtil = require("../../../utils/util");
 var util_1 = require("../util");
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectFiles = (function (_super) {
     __extends(ObjectFiles, _super);
     function ObjectFiles() {
@@ -844,18 +854,18 @@ var ObjectFiles = (function (_super) {
         return split[split.length - 1];
     };
     return ObjectFiles;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectFiles = ObjectFiles;
 ;
 
-},{"../../../utils/util":24,"../util":21,"./ObjectHandlerBase":13}],13:[function(require,module,exports){
+},{"../../../utils/util":23,"../util":20,"./objecthandlerbase":12}],12:[function(require,module,exports){
 "use strict";
-var HttpClient_1 = require("../../../net/HttpClient");
+var httpclient_1 = require("../../../net/httpclient");
 var logging_1 = require("../../../utils/logging");
 var ObjectHandlerBase = (function () {
     function ObjectHandlerBase(name) {
         this.name = name;
-        this.httpClient = new HttpClient_1.HttpClient();
+        this.httpClient = new httpclient_1.HttpClient();
     }
     ObjectHandlerBase.prototype.ProvisionObjects = function (objects, parameters) {
         return new Promise(function (resolve, reject) { resolve("Not implemented."); });
@@ -870,15 +880,15 @@ var ObjectHandlerBase = (function () {
 }());
 exports.ObjectHandlerBase = ObjectHandlerBase;
 
-},{"../../../net/HttpClient":3,"../../../utils/logging":23}],14:[function(require,module,exports){
+},{"../../../net/httpclient":5,"../../../utils/logging":22}],13:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var Sequencer_1 = require("../Sequencer/Sequencer");
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var sequencer_1 = require("../sequencer/sequencer");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectLists = (function (_super) {
     __extends(ObjectLists, _super);
     function ObjectLists() {
@@ -1008,7 +1018,7 @@ var ObjectLists = (function (_super) {
                     }
                 });
                 clientContext.executeQueryAsync(function () {
-                    var sequencer = new Sequencer_1.Sequencer([
+                    var sequencer = new sequencer_1.Sequencer([
                         _this.ApplyContentTypeBindings,
                         _this.ApplyListInstanceFieldRefs,
                         _this.ApplyFields,
@@ -1197,6 +1207,7 @@ var ObjectLists = (function (_super) {
             var properties_1 = [];
             Object.keys(field).forEach(function (prop) {
                 var value = field[prop];
+                properties_1.push(prop + "=\"" + value + "\"");
                 if (prop === "List") {
                     var targetList = lists.filter(function (v) {
                         return v.get_title() === value;
@@ -1207,7 +1218,6 @@ var ObjectLists = (function (_super) {
                     else {
                         return null;
                     }
-                    properties_1.push(prop + "=\"" + value + "\"");
                 }
             });
             fieldXml = "<Field " + properties_1.join(" ") + ">";
@@ -1375,10 +1385,10 @@ var ObjectLists = (function (_super) {
         });
     };
     return ObjectLists;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectLists = ObjectLists;
 
-},{"../Sequencer/Sequencer":19,"./ObjectHandlerBase":13}],15:[function(require,module,exports){
+},{"../sequencer/sequencer":19,"./objecthandlerbase":12}],14:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -1386,7 +1396,7 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var util_1 = require("../util");
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectNavigation = (function (_super) {
     __extends(ObjectNavigation, _super);
     function ObjectNavigation() {
@@ -1471,10 +1481,10 @@ var ObjectNavigation = (function (_super) {
         });
     };
     return ObjectNavigation;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectNavigation = ObjectNavigation;
 
-},{"../util":21,"./ObjectHandlerBase":13}],16:[function(require,module,exports){
+},{"../util":20,"./objecthandlerbase":12}],15:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -1482,7 +1492,7 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var util_1 = require("../util");
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectPropertyBagEntries = (function (_super) {
     __extends(ObjectPropertyBagEntries, _super);
     function ObjectPropertyBagEntries() {
@@ -1535,17 +1545,17 @@ var ObjectPropertyBagEntries = (function (_super) {
         });
     };
     return ObjectPropertyBagEntries;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectPropertyBagEntries = ObjectPropertyBagEntries;
 
-},{"../util":21,"./ObjectHandlerBase":13}],17:[function(require,module,exports){
+},{"../util":20,"./objecthandlerbase":12}],16:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-var ObjectHandlerBase_1 = require("./ObjectHandlerBase");
+var objecthandlerbase_1 = require("./objecthandlerbase");
 var ObjectWebSettings = (function (_super) {
     __extends(ObjectWebSettings, _super);
     function ObjectWebSettings() {
@@ -1588,10 +1598,92 @@ var ObjectWebSettings = (function (_super) {
         });
     };
     return ObjectWebSettings;
-}(ObjectHandlerBase_1.ObjectHandlerBase));
+}(objecthandlerbase_1.ObjectHandlerBase));
 exports.ObjectWebSettings = ObjectWebSettings;
 
-},{"./ObjectHandlerBase":13}],18:[function(require,module,exports){
+},{"./objecthandlerbase":12}],17:[function(require,module,exports){
+"use strict";
+var provisioningstep_1 = require("./provisioningstep");
+var objectnavigation_1 = require("./objecthandlers/objectnavigation");
+var objectpropertybagentries_1 = require("./objecthandlers/objectpropertybagentries");
+var objectfeatures_1 = require("./objecthandlers/objectfeatures");
+var objectwebsettings_1 = require("./objecthandlers/objectwebsettings");
+var objectcomposedlook_1 = require("./objecthandlers/objectcomposedlook");
+var objectcustomactions_1 = require("./objecthandlers/objectcustomactions");
+var objectfiles_1 = require("./objecthandlers/objectfiles");
+var objectlists_1 = require("./objecthandlers/objectlists");
+var util_1 = require("./util");
+var logging_1 = require("../../utils/logging");
+var httpclient_1 = require("../../net/httpclient");
+var Provisioning = (function () {
+    function Provisioning() {
+        this.handlers = {
+            "Navigation": objectnavigation_1.ObjectNavigation,
+            "PropertyBagEntries": objectpropertybagentries_1.ObjectPropertyBagEntries,
+            "Features": objectfeatures_1.ObjectFeatures,
+            "WebSettings": objectwebsettings_1.ObjectWebSettings,
+            "ComposedLook": objectcomposedlook_1.ObjectComposedLook,
+            "CustomActions": objectcustomactions_1.ObjectCustomActions,
+            "Files": objectfiles_1.ObjectFiles,
+            "Lists": objectlists_1.ObjectLists,
+        };
+        this.httpClient = new httpclient_1.HttpClient();
+    }
+    Provisioning.prototype.applyTemplate = function (path) {
+        var _this = this;
+        var url = util_1.Util.replaceUrlTokens(path);
+        return new Promise(function (resolve, reject) {
+            _this.httpClient.get(url).then(function (response) {
+                if (response.ok) {
+                    response.json().then(function (template) {
+                        _this.start(template, Object.keys(template)).then(resolve, reject);
+                    });
+                }
+                else {
+                    reject(response.statusText);
+                }
+            }, function (error) {
+                logging_1.Logger.write("Provisioning: The provided template is invalid", logging_1.LogLevel.Error);
+            });
+        });
+    };
+    Provisioning.prototype.start = function (json, queue) {
+        var _this = this;
+        return new Promise(function (resolve, reject) {
+            _this.startTime = new Date().getTime();
+            _this.queueItems = [];
+            queue.forEach(function (q, index) {
+                if (!_this.handlers[q]) {
+                    return;
+                }
+                _this.queueItems.push(new provisioningstep_1.ProvisioningStep(q, index, json[q], json.Parameters, _this.handlers[q]));
+            });
+            var promises = [];
+            promises.push(new Promise(function (res) {
+                logging_1.Logger.write("Provisioning: Code execution scope started", logging_1.LogLevel.Info);
+                res();
+            }));
+            var index = 1;
+            while (_this.queueItems[index - 1] !== undefined) {
+                var i = promises.length - 1;
+                promises.push(_this.queueItems[index - 1].execute(promises[i]));
+                index++;
+            }
+            ;
+            Promise.all(promises).then(function (value) {
+                logging_1.Logger.write("Provisioning: Code execution scope ended", logging_1.LogLevel.Info);
+                resolve(value);
+            }, function (error) {
+                logging_1.Logger.write("Provisioning: Code execution scope ended" + JSON.stringify(error), logging_1.LogLevel.Error);
+                reject(error);
+            });
+        });
+    };
+    return Provisioning;
+}());
+exports.Provisioning = Provisioning;
+
+},{"../../net/httpclient":5,"../../utils/logging":22,"./objecthandlers/objectcomposedlook":8,"./objecthandlers/objectcustomactions":9,"./objecthandlers/objectfeatures":10,"./objecthandlers/objectfiles":11,"./objecthandlers/objectlists":13,"./objecthandlers/objectnavigation":14,"./objecthandlers/objectpropertybagentries":15,"./objecthandlers/objectwebsettings":16,"./provisioningstep":18,"./util":20}],18:[function(require,module,exports){
 "use strict";
 var ProvisioningStep = (function () {
     function ProvisioningStep(name, index, objects, parameters, handler) {
@@ -1626,13 +1718,14 @@ var Sequencer = (function () {
         this.scope = scope;
     }
     Sequencer.prototype.execute = function (progressFunction) {
+        var _this = this;
         var promiseSequence = Promise.resolve();
         this.functions.forEach(function (sequenceFunction, functionNr) {
             promiseSequence = promiseSequence.then(function () {
-                return sequenceFunction.call(this.scope, this.parameter);
+                return sequenceFunction.call(_this.scope, _this.parameter);
             }).then(function (result) {
                 if (progressFunction) {
-                    progressFunction.call(this, functionNr, this.functions);
+                    progressFunction.call(_this, functionNr, _this.functions);
                 }
             });
         }, this);
@@ -1643,88 +1736,6 @@ var Sequencer = (function () {
 exports.Sequencer = Sequencer;
 
 },{}],20:[function(require,module,exports){
-"use strict";
-var ProvisioningStep_1 = require("./ProvisioningStep");
-var ObjectNavigation_1 = require("./ObjectHandlers/ObjectNavigation");
-var ObjectPropertyBagEntries_1 = require("./ObjectHandlers/ObjectPropertyBagEntries");
-var ObjectFeatures_1 = require("./ObjectHandlers/ObjectFeatures");
-var ObjectWebSettings_1 = require("./ObjectHandlers/ObjectWebSettings");
-var ObjectComposedLook_1 = require("./ObjectHandlers/ObjectComposedLook");
-var ObjectCustomActions_1 = require("./ObjectHandlers/ObjectCustomActions");
-var ObjectFiles_1 = require("./ObjectHandlers/ObjectFiles");
-var ObjectLists_1 = require("./ObjectHandlers/ObjectLists");
-var util_1 = require("./util");
-var logging_1 = require("../../utils/logging");
-var HttpClient_1 = require("../../net/HttpClient");
-var Provisioning = (function () {
-    function Provisioning() {
-        this.handlers = {
-            "Navigation": ObjectNavigation_1.ObjectNavigation,
-            "PropertyBagEntries": ObjectPropertyBagEntries_1.ObjectPropertyBagEntries,
-            "Features": ObjectFeatures_1.ObjectFeatures,
-            "WebSettings": ObjectWebSettings_1.ObjectWebSettings,
-            "ComposedLook": ObjectComposedLook_1.ObjectComposedLook,
-            "CustomActions": ObjectCustomActions_1.ObjectCustomActions,
-            "Files": ObjectFiles_1.ObjectFiles,
-            "Lists": ObjectLists_1.ObjectLists,
-        };
-        this.httpClient = new HttpClient_1.HttpClient();
-    }
-    Provisioning.prototype.applyTemplate = function (path) {
-        var _this = this;
-        var url = util_1.Util.replaceUrlTokens(path);
-        return new Promise(function (resolve, reject) {
-            _this.httpClient.get(url).then(function (response) {
-                if (response.ok) {
-                    response.json().then(function (template) {
-                        _this.start(template, Object.keys(template)).then(resolve, reject);
-                    });
-                }
-                else {
-                    reject(response.statusText);
-                }
-            }, function (error) {
-                logging_1.Logger.write("Provisioning: The provided template is invalid", logging_1.Logger.LogLevel.Error);
-            });
-        });
-    };
-    Provisioning.prototype.start = function (json, queue) {
-        var _this = this;
-        return new Promise(function (resolve, reject) {
-            _this.startTime = new Date().getTime();
-            _this.queueItems = [];
-            queue.forEach(function (q, index) {
-                if (!_this.handlers[q]) {
-                    return;
-                }
-                _this.queueItems.push(new ProvisioningStep_1.ProvisioningStep(q, index, json[q], json.Parameters, _this.handlers[q]));
-            });
-            var promises = [];
-            promises.push(new Promise(function (res) {
-                logging_1.Logger.write("Provisioning: Code execution scope started", logging_1.Logger.LogLevel.Info);
-                res();
-            }));
-            var index = 1;
-            while (_this.queueItems[index - 1] !== undefined) {
-                var i = promises.length - 1;
-                promises.push(_this.queueItems[index - 1].execute(promises[i]));
-                index++;
-            }
-            ;
-            Promise.all(promises).then(function (value) {
-                logging_1.Logger.write("Provisioning: Code execution scope ended", logging_1.Logger.LogLevel.Info);
-                resolve(value);
-            }, function (error) {
-                logging_1.Logger.write("Provisioning: Code execution scope ended" + JSON.stringify(error), logging_1.Logger.LogLevel.Error);
-                reject(error);
-            });
-        });
-    };
-    return Provisioning;
-}());
-exports.Provisioning = Provisioning;
-
-},{"../../net/HttpClient":3,"../../utils/logging":23,"./ObjectHandlers/ObjectComposedLook":9,"./ObjectHandlers/ObjectCustomActions":10,"./ObjectHandlers/ObjectFeatures":11,"./ObjectHandlers/ObjectFiles":12,"./ObjectHandlers/ObjectLists":14,"./ObjectHandlers/ObjectNavigation":15,"./ObjectHandlers/ObjectPropertyBagEntries":16,"./ObjectHandlers/ObjectWebSettings":17,"./ProvisioningStep":18,"./util":21}],21:[function(require,module,exports){
 "use strict";
 var Util = (function () {
     function Util() {
@@ -1751,7 +1762,7 @@ var Util = (function () {
 }());
 exports.Util = Util;
 
-},{}],22:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
@@ -1772,7 +1783,7 @@ function extractOdataId(candidate) {
     else {
         logging_1.Logger.log({
             data: candidate,
-            level: logging_1.Logger.LogLevel.Error,
+            level: logging_1.LogLevel.Error,
             message: "Could not extract odata id in object, you may be using nometadata. Object data logged to logger.",
         });
         throw new Error("Could not extract odata id in object, you may be using nometadata. Object data logged to logger.");
@@ -1869,7 +1880,7 @@ function getEntityUrl(entity) {
         return util_1.Util.combinePaths("_api", entity["odata.editLink"]);
     }
     else {
-        logging_1.Logger.write("No uri information found in ODataEntity parsing, chaining will fail for this object.", logging_1.Logger.LogLevel.Warning);
+        logging_1.Logger.write("No uri information found in ODataEntity parsing, chaining will fail for this object.", logging_1.LogLevel.Warning);
         return "";
     }
 }
@@ -1917,17 +1928,19 @@ var ODataBatch = (function () {
     };
     ODataBatch.prototype.execute = function () {
         var _this = this;
-        if (this._batchDepCount > 0) {
-            setTimeout(function () { return _this.execute(); }, 100);
-        }
-        else {
-            this.executeImpl();
-        }
+        return new Promise(function (resolve, reject) {
+            if (_this._batchDepCount > 0) {
+                setTimeout(function () { return _this.execute(); }, 100);
+            }
+            else {
+                _this.executeImpl().then(function () { return resolve(); }).catch(reject);
+            }
+        });
     };
     ODataBatch.prototype.executeImpl = function () {
         var _this = this;
         if (this._requests.length < 1) {
-            return;
+            return new Promise(function (r) { return r(); });
         }
         var batchBody = [];
         var currentChangeSetId = "";
@@ -1985,28 +1998,31 @@ var ODataBatch = (function () {
             currentChangeSetId = "";
         }
         batchBody.push("--batch_" + this._batchId + "--\n");
-        var batchHeaders = new Headers();
-        batchHeaders.append("Content-Type", "multipart/mixed; boundary=batch_" + this._batchId);
+        var batchHeaders = {
+            "Content-Type": "multipart/mixed; boundary=batch_" + this._batchId,
+        };
         var batchOptions = {
             "body": batchBody.join(""),
             "headers": batchHeaders,
         };
         var client = new httpclient_1.HttpClient();
-        client.post(util_1.Util.makeUrlAbsolute("/_api/$batch"), batchOptions)
+        return client.post(util_1.Util.makeUrlAbsolute("/_api/$batch"), batchOptions)
             .then(function (r) { return r.text(); })
             .then(this._parseResponse)
             .then(function (responses) {
             if (responses.length !== _this._requests.length) {
                 throw new Error("Could not properly parse responses to match requests in batch.");
             }
+            var resolutions = [];
             for (var i = 0; i < responses.length; i++) {
                 var request = _this._requests[i];
                 var response = responses[i];
                 if (!response.ok) {
                     request.reject(new Error(response.statusText));
                 }
-                request.parser.parse(response).then(request.resolve).catch(request.reject);
+                resolutions.push(request.parser.parse(response).then(request.resolve).catch(request.reject));
             }
+            return Promise.all(resolutions);
         });
     };
     ODataBatch.prototype._parseResponse = function (body) {
@@ -2073,8 +2089,16 @@ var ODataBatch = (function () {
 }());
 exports.ODataBatch = ODataBatch;
 
-},{"../../configuration/pnplibconfig":2,"../../net/httpclient":6,"../../utils/logging":23,"../../utils/util":24}],23:[function(require,module,exports){
+},{"../../configuration/pnplibconfig":2,"../../net/httpclient":5,"../../utils/logging":22,"../../utils/util":23}],22:[function(require,module,exports){
 "use strict";
+(function (LogLevel) {
+    LogLevel[LogLevel["Verbose"] = 0] = "Verbose";
+    LogLevel[LogLevel["Info"] = 1] = "Info";
+    LogLevel[LogLevel["Warning"] = 2] = "Warning";
+    LogLevel[LogLevel["Error"] = 3] = "Error";
+    LogLevel[LogLevel["Off"] = 99] = "Off";
+})(exports.LogLevel || (exports.LogLevel = {}));
+var LogLevel = exports.LogLevel;
 var Logger = (function () {
     function Logger() {
     }
@@ -2118,7 +2142,7 @@ var Logger = (function () {
         configurable: true
     });
     Logger.write = function (message, level) {
-        if (level === void 0) { level = Logger.LogLevel.Verbose; }
+        if (level === void 0) { level = LogLevel.Verbose; }
         Logger.instance.log({ level: level, message: message });
     };
     Logger.log = function (entry) {
@@ -2132,7 +2156,7 @@ var Logger = (function () {
 exports.Logger = Logger;
 var LoggerImpl = (function () {
     function LoggerImpl(activeLogLevel, subscribers) {
-        if (activeLogLevel === void 0) { activeLogLevel = Logger.LogLevel.Warning; }
+        if (activeLogLevel === void 0) { activeLogLevel = LogLevel.Warning; }
         if (subscribers === void 0) { subscribers = []; }
         this.activeLogLevel = activeLogLevel;
         this.subscribers = subscribers;
@@ -2153,7 +2177,7 @@ var LoggerImpl = (function () {
         configurable: true
     });
     LoggerImpl.prototype.write = function (message, level) {
-        if (level === void 0) { level = Logger.LogLevel.Verbose; }
+        if (level === void 0) { level = LogLevel.Verbose; }
         this.log({ level: level, message: message });
     };
     LoggerImpl.prototype.log = function (entry) {
@@ -2175,92 +2199,81 @@ var LoggerImpl = (function () {
     };
     return LoggerImpl;
 }());
-var Logger;
-(function (Logger) {
-    (function (LogLevel) {
-        LogLevel[LogLevel["Verbose"] = 0] = "Verbose";
-        LogLevel[LogLevel["Info"] = 1] = "Info";
-        LogLevel[LogLevel["Warning"] = 2] = "Warning";
-        LogLevel[LogLevel["Error"] = 3] = "Error";
-        LogLevel[LogLevel["Off"] = 99] = "Off";
-    })(Logger.LogLevel || (Logger.LogLevel = {}));
-    var LogLevel = Logger.LogLevel;
-    var ConsoleListener = (function () {
-        function ConsoleListener() {
+var ConsoleListener = (function () {
+    function ConsoleListener() {
+    }
+    ConsoleListener.prototype.log = function (entry) {
+        var msg = this.format(entry);
+        switch (entry.level) {
+            case LogLevel.Verbose:
+            case LogLevel.Info:
+                console.log(msg);
+                break;
+            case LogLevel.Warning:
+                console.warn(msg);
+                break;
+            case LogLevel.Error:
+                console.error(msg);
+                break;
         }
-        ConsoleListener.prototype.log = function (entry) {
-            var msg = this.format(entry);
-            switch (entry.level) {
-                case LogLevel.Verbose:
-                case LogLevel.Info:
-                    console.log(msg);
-                    break;
-                case LogLevel.Warning:
-                    console.warn(msg);
-                    break;
-                case LogLevel.Error:
-                    console.error(msg);
-                    break;
+    };
+    ConsoleListener.prototype.format = function (entry) {
+        return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
+    };
+    return ConsoleListener;
+}());
+exports.ConsoleListener = ConsoleListener;
+var AzureInsightsListener = (function () {
+    function AzureInsightsListener(azureInsightsInstrumentationKey) {
+        this.azureInsightsInstrumentationKey = azureInsightsInstrumentationKey;
+        var appInsights = window["appInsights"] || function (config) {
+            function r(config) {
+                t[config] = function () {
+                    var i = arguments;
+                    t.queue.push(function () { t[config].apply(t, i); });
+                };
             }
-        };
-        ConsoleListener.prototype.format = function (entry) {
-            return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
-        };
-        return ConsoleListener;
-    }());
-    Logger.ConsoleListener = ConsoleListener;
-    var AzureInsightsListener = (function () {
-        function AzureInsightsListener(azureInsightsInstrumentationKey) {
-            this.azureInsightsInstrumentationKey = azureInsightsInstrumentationKey;
-            var appInsights = window["appInsights"] || function (config) {
-                function r(config) {
-                    t[config] = function () {
-                        var i = arguments;
-                        t.queue.push(function () { t[config].apply(t, i); });
-                    };
-                }
-                var t = { config: config }, u = document, e = window, o = "script", s = u.createElement(o), i, f;
-                for (s.src = config.url || "//az416426.vo.msecnd.net/scripts/a/ai.0.js", u.getElementsByTagName(o)[0].parentNode.appendChild(s), t.cookie = u.cookie, t.queue = [], i = ["Event", "Exception", "Metric", "PageView", "Trace"]; i.length;) {
-                    r("track" + i.pop());
-                }
-                return r("setAuthenticatedUserContext"), r("clearAuthenticatedUserContext"), config.disableExceptionTracking || (i = "onerror", r("_" + i), f = e[i], e[i] = function (config, r, u, e, o) {
-                    var s = f && f(config, r, u, e, o);
-                    return s !== !0 && t["_" + i](config, r, u, e, o), s;
-                }), t;
-            }({
-                instrumentationKey: this.azureInsightsInstrumentationKey
-            });
-            window["appInsights"] = appInsights;
+            var t = { config: config }, u = document, e = window, o = "script", s = u.createElement(o), i, f;
+            for (s.src = config.url || "//az416426.vo.msecnd.net/scripts/a/ai.0.js", u.getElementsByTagName(o)[0].parentNode.appendChild(s), t.cookie = u.cookie, t.queue = [], i = ["Event", "Exception", "Metric", "PageView", "Trace"]; i.length;) {
+                r("track" + i.pop());
+            }
+            return r("setAuthenticatedUserContext"), r("clearAuthenticatedUserContext"), config.disableExceptionTracking || (i = "onerror", r("_" + i), f = e[i], e[i] = function (config, r, u, e, o) {
+                var s = f && f(config, r, u, e, o);
+                return s !== !0 && t["_" + i](config, r, u, e, o), s;
+            }), t;
+        }({
+            instrumentationKey: this.azureInsightsInstrumentationKey
+        });
+        window["appInsights"] = appInsights;
+    }
+    AzureInsightsListener.prototype.log = function (entry) {
+        var ai = window["appInsights"];
+        var msg = this.format(entry);
+        if (entry.level === LogLevel.Error) {
+            ai.trackException(msg);
         }
-        AzureInsightsListener.prototype.log = function (entry) {
-            var ai = window["appInsights"];
-            var msg = this.format(entry);
-            if (entry.level === LogLevel.Error) {
-                ai.trackException(msg);
-            }
-            else {
-                ai.trackEvent(msg);
-            }
-        };
-        AzureInsightsListener.prototype.format = function (entry) {
-            return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
-        };
-        return AzureInsightsListener;
-    }());
-    Logger.AzureInsightsListener = AzureInsightsListener;
-    var FunctionListener = (function () {
-        function FunctionListener(method) {
-            this.method = method;
+        else {
+            ai.trackEvent(msg);
         }
-        FunctionListener.prototype.log = function (entry) {
-            this.method(entry);
-        };
-        return FunctionListener;
-    }());
-    Logger.FunctionListener = FunctionListener;
-})(Logger = exports.Logger || (exports.Logger = {}));
+    };
+    AzureInsightsListener.prototype.format = function (entry) {
+        return "Message: " + entry.message + ". Data: " + JSON.stringify(entry.data);
+    };
+    return AzureInsightsListener;
+}());
+exports.AzureInsightsListener = AzureInsightsListener;
+var FunctionListener = (function () {
+    function FunctionListener(method) {
+        this.method = method;
+    }
+    FunctionListener.prototype.log = function (entry) {
+        this.method(entry);
+    };
+    return FunctionListener;
+}());
+exports.FunctionListener = FunctionListener;
 
-},{}],24:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 (function (global){
 "use strict";
 var Util = (function () {
@@ -2434,5 +2447,5 @@ var Util = (function () {
 exports.Util = Util;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}]},{},[20])(20)
+},{}]},{},[17])(17)
 });

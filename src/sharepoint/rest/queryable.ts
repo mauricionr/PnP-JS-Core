@@ -2,7 +2,7 @@
 
 import { Util } from "../../utils/util";
 import { Dictionary } from "../../collections/collections";
-import { FetchOptions, HttpClient } from "../../net/HttpClient";
+import { FetchOptions, HttpClient } from "../../net/httpclient";
 import { ODataParser, ODataDefaultParser, ODataBatch } from "./odata";
 import { ICachingOptions, CachingParserWrapper, CachingOptions } from "./caching";
 import { RuntimeConfig } from "../../configuration/pnplibconfig";
@@ -18,51 +18,6 @@ export interface QueryableConstructor<T> {
  *
  */
 export class Queryable {
-
-    /**
-     * Creates a new instance of the Queryable class
-     *
-     * @constructor
-     * @param baseUrl A string or Queryable that should form the base part of the url
-     *
-     */
-    constructor(baseUrl: string | Queryable, path?: string) {
-
-        this._query = new Dictionary<string>();
-        this._batch = null;
-
-        if (typeof baseUrl === "string") {
-            // we need to do some extra parsing to get the parent url correct if we are
-            // being created from just a string.
-
-            let urlStr = baseUrl as string;
-            if (urlStr.lastIndexOf("/") < 0) {
-                this._parentUrl = urlStr;
-                this._url = Util.combinePaths(urlStr, path);
-            } else if (urlStr.lastIndexOf("/") > urlStr.lastIndexOf("(")) {
-                let index = urlStr.lastIndexOf("/");
-                this._parentUrl = urlStr.slice(0, index);
-                path = Util.combinePaths(urlStr.slice(index), path);
-                this._url = Util.combinePaths(this._parentUrl, path);
-            } else {
-                let index = urlStr.lastIndexOf("(");
-                this._parentUrl = urlStr.slice(0, index);
-                this._url = Util.combinePaths(urlStr, path);
-            }
-        } else {
-            let q = baseUrl as Queryable;
-            this._parentUrl = q._url;
-            // only copy batch if we don't already have one
-            if (!this.hasBatch && q.hasBatch) {
-                this._batch = q._batch;
-            }
-            let target = q._query.get("@target");
-            if (target !== null) {
-                this._query.add("@target", target);
-            }
-            this._url = Util.combinePaths(this._parentUrl, path);
-        }
-    }
 
     /**
      * Tracks the query parts of the url
@@ -152,6 +107,51 @@ export class Queryable {
      */
     public get query(): Dictionary<string> {
         return this._query;
+    }
+
+    /**
+     * Creates a new instance of the Queryable class
+     *
+     * @constructor
+     * @param baseUrl A string or Queryable that should form the base part of the url
+     *
+     */
+    constructor(baseUrl: string | Queryable, path?: string) {
+
+        this._query = new Dictionary<string>();
+        this._batch = null;
+
+        if (typeof baseUrl === "string") {
+            // we need to do some extra parsing to get the parent url correct if we are
+            // being created from just a string.
+
+            let urlStr = baseUrl as string;
+            if (urlStr.lastIndexOf("/") < 0) {
+                this._parentUrl = urlStr;
+                this._url = Util.combinePaths(urlStr, path);
+            } else if (urlStr.lastIndexOf("/") > urlStr.lastIndexOf("(")) {
+                let index = urlStr.lastIndexOf("/");
+                this._parentUrl = urlStr.slice(0, index);
+                path = Util.combinePaths(urlStr.slice(index), path);
+                this._url = Util.combinePaths(this._parentUrl, path);
+            } else {
+                let index = urlStr.lastIndexOf("(");
+                this._parentUrl = urlStr.slice(0, index);
+                this._url = Util.combinePaths(urlStr, path);
+            }
+        } else {
+            let q = baseUrl as Queryable;
+            this._parentUrl = q._url;
+            // only copy batch if we don't already have one
+            if (!this.hasBatch && q.hasBatch) {
+                this._batch = q._batch;
+            }
+            let target = q._query.get("@target");
+            if (target !== null) {
+                this._query.add("@target", target);
+            }
+            this._url = Util.combinePaths(this._parentUrl, path);
+        }
     }
 
     /**
@@ -256,10 +256,13 @@ export class Queryable {
                 options = Util.extend(options, this._cachingOptions);
             }
 
-            // check if we have the data in cache and if so return a resolved promise
-            let data = options.store.get(options.key);
-            if (data !== null) {
-                return new Promise(resolve => resolve(data));
+            // we may not have a valid store, i.e. on node
+            if (options.store !== null) {
+                // check if we have the data in cache and if so return a resolved promise
+                let data = options.store.get(options.key);
+                if (data !== null) {
+                    return new Promise(resolve => resolve(data));
+                }
             }
 
             // if we don't then wrap the supplied parser in the caching parser wrapper
@@ -358,12 +361,12 @@ export class QueryableCollection extends Queryable {
      * Orders based on the supplied fields ascending
      * 
      * @param orderby The name of the field to sort on
-     * @param ascending If true ASC is appended, otherwise DESC (default)
+     * @param ascending If false DESC is appended, otherwise ASC (default)
      */
-    public orderBy(orderBy: string, ascending = false): QueryableCollection {
+    public orderBy(orderBy: string, ascending = true): QueryableCollection {
         let keys = this._query.getKeys();
         let query = [];
-        let asc = ascending ? " asc" : "";
+        let asc = ascending ? " asc" : " desc";
         for (let i = 0; i < keys.length; i++) {
             if (keys[i] === "$orderby") {
                 query.push(this._query.get("$orderby"));

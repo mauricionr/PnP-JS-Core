@@ -5,6 +5,15 @@
         "jsx": "react",
         "declaration": false,
         "sourceMap": true,
-        "removeComments": true
+        "removeComments": true,
+        "types": [
+            "whatwg-fetch",
+            "sharepoint",
+            "chai",
+            "chai-as-promised",
+            "core-js",
+            "node",
+            "mocha"
+        ]
     }
 }

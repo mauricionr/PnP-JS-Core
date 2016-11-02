@@ -56,6 +56,20 @@ describe("QueryableCollection", () => {
     });
 
     describe("orderBy", () => {
+        it("Should append a single order by query ascending (default behavior)", () => {
+            queryable.orderBy("Title");
+            expect(queryable.toUrlAndQuery()).to.include("$orderby=Title asc");
+        });
+    });
+
+    describe("orderBy", () => {
+        it("Should append a single order by query descending", () => {
+            queryable.orderBy("Title", false);
+            expect(queryable.toUrlAndQuery()).to.include("$orderby=Title desc");
+        });
+    });
+
+    describe("orderBy", () => {
         it("Should append multiple order by queries", () => {
             queryable.orderBy("Title", true);
             queryable.orderBy("Description");

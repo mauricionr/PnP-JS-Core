@@ -21,53 +21,36 @@ var gulp = require("gulp"),
     srcmaps = require("gulp-sourcemaps"),
     merge = require("merge2");
 
-// we need to build src (es5, umd) -> build
-// we need to package the definitions in a single file -> dist
-// we need to build src (es6, es6) -> lib
-// we need to browsify build/src -> dist
-// we need to browsify & uglify build/src -> dist
-
 function packageDefinitions() {
 
     console.log(global.TSDist.RootFolder + "/" + global.TSDist.DefinitionFileName);
 
     var src = global.TSWorkspace.Files.slice(0);
-    src.push(global.TSTypings.Main);
 
     // create a project specific to our typings build and specify the outFile. This will result
     // in a single pnp.d.ts file being creating and piped to the typings folder
-    var typingsProject = tsc.createProject('tsconfig.json', { "declaration": true, "outFile": "pnp.js", "removeComments": false });
+    var typingsProject = tsc.createProject('tsconfig.json', { "declaration": true, "outFile": "pnp.js", "removeComments": false, "module": "system" });
 
     return gulp.src(src)
-            .pipe(tsc(typingsProject))
-            .dts.pipe(gulp.dest(global.TSDist.RootFolder));
+        .pipe(typingsProject())
+        .dts.pipe(gulp.dest(global.TSDist.RootFolder));
 }
 
 function packageLib() {
 
     var src = global.TSWorkspace.Files.slice(0);
-    src.push(global.TSTypings.Main);
-    // use these only instead of main when targetting es6
-    // src.push("./typings/main/ambient/sharepoint/index.d.ts");
-    // src.push("./typings/main/ambient/whatwg-fetch/index.d.ts");
-    // src.push("./typings/main/ambient/microsoft.ajax/index.d.ts");
-    // src.push("./typings/main/ambient/jquery/index.d.ts");
 
-    // setup our es5 project to create the lib folder in dist
+    // setup our es5 project to create the lib folder
     var packageProject = tsc.createProject({
         "declaration": true,
         "removeComments": false,
         "module": "commonjs",
-        "target": "es5",
-        "jsx": "react"
+        "target": "es5"
     });
 
-    var built = gulp.src(src).pipe(tsc(packageProject));
-
-    return merge([
-        built.dts.pipe(gulp.dest(global.TSDist.SrcFolder)),
-        built.js.pipe(gulp.dest(global.TSDist.SrcFolder)),
-    ]);
+    return gulp.src(src)
+        .pipe(packageProject())
+        .pipe(gulp.dest(global.TSDist.SrcFolder));
 }
 
 function packageBundle() {

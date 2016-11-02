@@ -15,16 +15,6 @@ export interface TypedHash<T> {
 export class Dictionary<T> {
 
     /**
-     * Creates a new instance of the Dictionary<T> class
-     *
-     * @constructor
-     */
-    constructor() {
-        this.keys = [];
-        this.values = [];
-    }
-
-    /**
      * The array used to store all the keys
      */
     private keys: string[];
@@ -33,6 +23,16 @@ export class Dictionary<T> {
      * The array used to store all the values
      */
     private values: T[];
+
+    /**
+     * Creates a new instance of the Dictionary<T> class
+     *
+     * @constructor
+     */
+    constructor() {
+        this.keys = [];
+        this.values = [];
+    }
 
     /**
      * Gets a value from the collection using the specified key
@@ -66,7 +66,7 @@ export class Dictionary<T> {
     /**
      * Merges the supplied typed hash into this dictionary instance. Existing values are updated and new ones are created as appropriate.
      */
-    /* tslint:disable member-access */
+    /* tslint:disable no-string-literal */
     public merge(source: TypedHash<T> | Dictionary<T>): void {
         if (Util.isFunction(source["getKeys"])) {
             let sourceAsDictionary = source as Dictionary<T>;

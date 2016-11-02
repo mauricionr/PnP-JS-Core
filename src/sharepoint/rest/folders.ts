@@ -93,14 +93,6 @@ export class Folder extends QueryableInstance {
     }
 
     /**
-     * Gets this folder's item count
-     * 
-     */
-    public get itemCount(): Queryable {
-        return new Queryable(this, "itemCount");
-    }
-
-    /**
      * Gets this folder's list item
      * 
      */
@@ -109,18 +101,10 @@ export class Folder extends QueryableInstance {
     }
 
     /**
-     * Gets the folders name
-     * 
-     */
-    public get name(): Queryable {
-        return new Queryable(this, "name");
-    }
-
-    /**
      * Gets the parent folder, if available
      * 
      */
-    public get parentFolder() {
+    public get parentFolder(): Folder {
         return new Folder(this, "parentFolder");
     }
 
@@ -149,17 +133,10 @@ export class Folder extends QueryableInstance {
     }
 
     /**
-     * Gets this folder's welcome page
-     */
-    public get welcomePage(): Queryable {
-        return new Queryable(this, "welcomePage");
-    }
-
-     /**
-     * Delete this folder
-     * 
-     * @param eTag Value used in the IF-Match header, by default "*"
-     */
+    * Delete this folder
+    * 
+    * @param eTag Value used in the IF-Match header, by default "*"
+    */
     public delete(eTag = "*"): Promise<void> {
         return new Folder(this).post({
             headers: {

@@ -1,3 +1,7 @@
+/// <reference types="core-js" />
+/// <reference types="microsoft-ajax" />
+/// <reference types="whatwg-fetch" />
+/// <reference types="chai" />
 declare module "utils/util" {
     export class Util {
         /**
@@ -213,12 +217,6 @@ declare module "utils/storage" {
      */
     export class PnPClientStorage {
         /**
-         * Creates a new instance of the PnPClientStorage class
-         *
-         * @constructor
-         */
-        constructor();
-        /**
          * Provides access to the local storage of the browser
          */
         local: PnPClientStore;
@@ -226,6 +224,12 @@ declare module "utils/storage" {
          * Provides access to the session storage of the browser
          */
         session: PnPClientStore;
+        /**
+         * Creates a new instance of the PnPClientStorage class
+         *
+         * @constructor
+         */
+        constructor();
     }
 }
 declare module "collections/collections" {
@@ -240,12 +244,6 @@ declare module "collections/collections" {
      */
     export class Dictionary<T> {
         /**
-         * Creates a new instance of the Dictionary<T> class
-         *
-         * @constructor
-         */
-        constructor();
-        /**
          * The array used to store all the keys
          */
         private keys;
@@ -253,6 +251,12 @@ declare module "collections/collections" {
          * The array used to store all the values
          */
         private values;
+        /**
+         * Creates a new instance of the Dictionary<T> class
+         *
+         * @constructor
+         */
+        constructor();
         /**
          * Gets a value from the collection using the specified key
          *
@@ -329,8 +333,8 @@ declare module "configuration/providers/cachingConfigurationProvider" {
         private selectPnPCache();
     }
 }
-declare module "net/FetchClient" {
-    import { HttpClientImpl } from "net/HttpClient";
+declare module "net/fetchclient" {
+    import { HttpClientImpl } from "net/httpclient";
     /**
      * Makes requests using the fetch API
      */
@@ -339,6 +343,17 @@ declare module "net/FetchClient" {
     }
 }
 declare module "utils/logging" {
+    /**
+     * A set of logging levels
+     *
+     */
+    export enum LogLevel {
+        Verbose = 0,
+        Info = 1,
+        Warning = 2,
+        Error = 3,
+        Off = 99,
+    }
     /**
      * Interface that defines a log entry
      *
@@ -351,7 +366,7 @@ declare module "utils/logging" {
         /**
          * The level of information this message represents
          */
-        level: Logger.LogLevel;
+        level: LogLevel;
         /**
          * Any associated data that a given logging listener may choose to log or ignore
          */
@@ -375,8 +390,8 @@ declare module "utils/logging" {
      */
     export class Logger {
         private static _instance;
-        static activeLogLevel: Logger.LogLevel;
-        private static instance;
+        static activeLogLevel: LogLevel;
+        private static readonly instance;
         /**
          * Adds an ILogListener instance to the set of subscribed listeners
          *
@@ -390,14 +405,14 @@ declare module "utils/logging" {
         /**
          * Gets the current subscriber count
          */
-        static count: number;
+        static readonly count: number;
         /**
          * Writes the supplied string to the subscribed listeners
          *
          * @param message The message to write
          * @param level [Optional] if supplied will be used as the level of the entry (Default: LogLevel.Verbose)
          */
-        static write(message: string, level?: Logger.LogLevel): void;
+        static write(message: string, level?: LogLevel): void;
         /**
          * Logs the supplied entry to the subscribed listeners
          *
@@ -413,84 +428,68 @@ declare module "utils/logging" {
         static measure<T>(name: string, f: () => T): T;
     }
     /**
-     * This module is merged with the Logger class and then exposed via the API as path of pnp.log
+     * Implementation of ILogListener which logs to the browser console
+     *
      */
-    export module Logger {
+    export class ConsoleListener implements LogListener {
         /**
-         * A set of logging levels
+         * Any associated data that a given logging listener may choose to log or ignore
          *
+         * @param entry The information to be logged
          */
-        enum LogLevel {
-            Verbose = 0,
-            Info = 1,
-            Warning = 2,
-            Error = 3,
-            Off = 99,
-        }
+        log(entry: LogEntry): void;
         /**
-         * Implementation of ILogListener which logs to the browser console
+         * Formats the message
          *
+         * @param entry The information to format into a string
          */
-        class ConsoleListener implements LogListener {
-            /**
-             * Any associated data that a given logging listener may choose to log or ignore
-             *
-             * @param entry The information to be logged
-             */
-            log(entry: LogEntry): void;
-            /**
-             * Formats the message
-             *
-             * @param entry The information to format into a string
-             */
-            private format(entry);
-        }
+        private format(entry);
+    }
+    /**
+     * Implementation of ILogListener which logs to Azure Insights
+     *
+     */
+    export class AzureInsightsListener implements LogListener {
+        private azureInsightsInstrumentationKey;
         /**
-         * Implementation of ILogListener which logs to Azure Insights
+         * Creats a new instance of the AzureInsightsListener class
          *
+         * @constructor
+         * @param azureInsightsInstrumentationKey The instrumentation key created when the Azure Insights instance was created
          */
-        class AzureInsightsListener implements LogListener {
-            private azureInsightsInstrumentationKey;
-            /**
-             * Creats a new instance of the AzureInsightsListener class
-             *
-             * @constructor
-             * @param azureInsightsInstrumentationKey The instrumentation key created when the Azure Insights instance was created
-             */
-            constructor(azureInsightsInstrumentationKey: string);
-            /**
-             * Any associated data that a given logging listener may choose to log or ignore
-             *
-             * @param entry The information to be logged
-             */
-            log(entry: LogEntry): void;
-            /**
-             * Formats the message
-             *
-             * @param entry The information to format into a string
-             */
-            private format(entry);
-        }
+        constructor(azureInsightsInstrumentationKey: string);
         /**
-         * Implementation of ILogListener which logs to the supplied function
+         * Any associated data that a given logging listener may choose to log or ignore
          *
+         * @param entry The information to be logged
          */
-        class FunctionListener implements LogListener {
-            private method;
-            /**
-             * Creates a new instance of the FunctionListener class
-             *
-             * @constructor
-             * @param  method The method to which any logging data will be passed
-             */
-            constructor(method: (entry: LogEntry) => void);
-            /**
-             * Any associated data that a given logging listener may choose to log or ignore
-             *
-             * @param entry The information to be logged
-             */
-            log(entry: LogEntry): void;
-        }
+        log(entry: LogEntry): void;
+        /**
+         * Formats the message
+         *
+         * @param entry The information to format into a string
+         */
+        private format(entry);
+    }
+    /**
+     * Implementation of ILogListener which logs to the supplied function
+     *
+     */
+    export class FunctionListener implements LogListener {
+        private method;
+        /**
+         * Creates a new instance of the FunctionListener class
+         *
+         * @constructor
+         * @param  method The method to which any logging data will be passed
+         */
+        constructor(method: (entry: LogEntry) => void);
+        /**
+         * Any associated data that a given logging listener may choose to log or ignore
+         *
+         * @param entry The information to be logged
+         */
+        log(entry: LogEntry): void;
     }
 }
 declare module "configuration/pnplibconfig" {
@@ -527,7 +526,6 @@ declare module "configuration/pnplibconfig" {
         nodeClientOptions?: NodeClientData;
     }
     export class RuntimeConfigImpl {
-        constructor();
         private _headers;
         private _defaultCachingStore;
         private _defaultCachingTimeoutSeconds;
@@ -535,14 +533,15 @@ declare module "configuration/pnplibconfig" {
         private _useSPRequestExecutor;
         private _useNodeClient;
         private _nodeClientData;
+        constructor();
         set(config: LibraryConfiguration): void;
-        headers: TypedHash<string>;
-        defaultCachingStore: "session" | "local";
-        defaultCachingTimeoutSeconds: number;
-        globalCacheDisable: boolean;
-        useSPRequestExecutor: boolean;
-        useNodeFetchClient: boolean;
-        nodeRequestOptions: NodeClientData;
+        readonly headers: TypedHash<string>;
+        readonly defaultCachingStore: "session" | "local";
+        readonly defaultCachingTimeoutSeconds: number;
+        readonly globalCacheDisable: boolean;
+        readonly useSPRequestExecutor: boolean;
+        readonly useNodeFetchClient: boolean;
+        readonly nodeRequestOptions: NodeClientData;
     }
     export let RuntimeConfig: RuntimeConfigImpl;
     export function setRuntimeConfig(config: LibraryConfiguration): void;
@@ -570,9 +569,9 @@ declare module "sharepoint/rest/odata" {
      */
     export class ODataBatch {
         private _batchId;
-        constructor(_batchId?: string);
         private _batchDepCount;
         private _requests;
+        constructor(_batchId?: string);
         /**
          * Adds a request to a batch (not designed for public use)
          *
@@ -586,8 +585,10 @@ declare module "sharepoint/rest/odata" {
         decrementBatchDep(): void;
         /**
          * Execute the current batch and resolve the associated promises
+         *
+         * @returns A promise which will be resolved once all of the batch's child promises have resolved
          */
-        execute(): void;
+        execute(): Promise<void>;
         private executeImpl();
         /**
          * Parses the response from a batch request into an array of Response instances
@@ -597,9 +598,9 @@ declare module "sharepoint/rest/odata" {
         private _parseResponse(body);
     }
 }
-declare module "net/DigestCache" {
+declare module "net/digestcache" {
     import { Dictionary } from "collections/collections";
-    import { HttpClient } from "net/HttpClient";
+    import { HttpClient } from "net/httpclient";
     export class CachedDigest {
         expiration: Date;
         value: string;
@@ -612,8 +613,8 @@ declare module "net/DigestCache" {
         clear(): void;
     }
 }
-declare module "net/SPRequestExecutorClient" {
-    import { HttpClientImpl } from "net/HttpClient";
+declare module "net/sprequestexecutorclient" {
+    import { HttpClientImpl } from "net/httpclient";
     /**
      * Makes requests using the SP.RequestExecutor library.
      */
@@ -628,8 +629,8 @@ declare module "net/SPRequestExecutorClient" {
         private convertToResponse;
     }
 }
-declare module "net/NodeFetchClient" {
-    import { HttpClientImpl } from "net/HttpClient";
+declare module "net/nodefetchclient" {
+    import { HttpClientImpl } from "net/httpclient";
     export interface AuthToken {
         token_type: string;
         expires_in: string;
@@ -646,9 +647,9 @@ declare module "net/NodeFetchClient" {
         private _clientId;
         private _clientSecret;
         private _realm;
-        constructor(siteUrl: string, _clientId: string, _clientSecret: string, _realm?: string);
         private static SharePointServicePrincipal;
         private token;
+        constructor(siteUrl: string, _clientId: string, _clientSecret: string, _realm?: string);
         fetch(url: string, options: any): Promise<Response>;
         /**
          * Gets an add-in only authentication token based on the supplied site url, client id and secret
@@ -660,10 +661,10 @@ declare module "net/NodeFetchClient" {
         private toDate(epoch);
     }
 }
-declare module "net/HttpClient" {
+declare module "net/httpclient" {
     export interface FetchOptions {
         method?: string;
-        headers?: HeaderInit | {
+        headers?: HeadersInit | {
             [index: string]: string;
         };
         body?: BodyInit;
@@ -672,9 +673,9 @@ declare module "net/HttpClient" {
         cache?: string | RequestCache;
     }
     export class HttpClient {
-        constructor();
         private _digestCache;
         private _impl;
+        constructor();
         fetch(url: string, options?: FetchOptions): Promise<Response>;
         fetchRaw(url: string, options?: FetchOptions): Promise<Response>;
         get(url: string, options?: FetchOptions): Promise<Response>;
@@ -696,11 +697,11 @@ declare module "sharepoint/rest/caching" {
     }
     export class CachingOptions implements ICachingOptions {
         key: string;
-        constructor(key: string);
         protected static storage: PnPClientStorage;
         expiration: Date;
         storeName: "session" | "local";
-        store: PnPClientStore;
+        constructor(key: string);
+        readonly store: PnPClientStore;
     }
     export class CachingParserWrapper<T, U> implements ODataParser<T, U> {
         private _parser;
@@ -711,7 +712,7 @@ declare module "sharepoint/rest/caching" {
 }
 declare module "sharepoint/rest/queryable" {
     import { Dictionary } from "collections/collections";
-    import { FetchOptions } from "net/HttpClient";
+    import { FetchOptions } from "net/httpclient";
     import { ODataParser, ODataBatch } from "sharepoint/rest/odata";
     import { ICachingOptions } from "sharepoint/rest/caching";
     export interface QueryableConstructor<T> {
@@ -722,14 +723,6 @@ declare module "sharepoint/rest/queryable" {
      *
      */
     export class Queryable {
-        /**
-         * Creates a new instance of the Queryable class
-         *
-         * @constructor
-         * @param baseUrl A string or Queryable that should form the base part of the url
-         *
-         */
-        constructor(baseUrl: string | Queryable, path?: string);
         /**
          * Tracks the query parts of the url
          */
@@ -778,17 +771,25 @@ declare module "sharepoint/rest/queryable" {
          * Indicates if the current query has a batch associated
          *
          */
-        protected hasBatch: boolean;
+        protected readonly hasBatch: boolean;
         /**
          * Gets the parent url used when creating this instance
          *
          */
-        protected parentUrl: string;
+        protected readonly parentUrl: string;
         /**
          * Provides access to the query builder for this url
          *
          */
-        query: Dictionary<string>;
+        readonly query: Dictionary<string>;
+        /**
+         * Creates a new instance of the Queryable class
+         *
+         * @constructor
+         * @param baseUrl A string or Queryable that should form the base part of the url
+         *
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
         /**
          * Adds this query to the supplied batch
          *
@@ -862,7 +863,7 @@ declare module "sharepoint/rest/queryable" {
          * Orders based on the supplied fields ascending
          *
          * @param orderby The name of the field to sort on
-         * @param ascending If true ASC is appended, otherwise DESC (default)
+         * @param ascending If false DESC is appended, otherwise ASC (default)
          */
         orderBy(orderBy: string, ascending?: boolean): QueryableCollection;
         /**
@@ -1509,7 +1510,7 @@ declare module "sharepoint/rest/siteusers" {
          * Get's the groups for this user.
          *
          */
-        groups: SiteGroups;
+        readonly groups: SiteGroups;
         /**
         * Updates this user instance with the supplied properties
         *
@@ -1652,7 +1653,7 @@ declare module "sharepoint/rest/sitegroups" {
          * Get's the users for this group
          *
          */
-        users: SiteUsers;
+        readonly users: SiteUsers;
         /**
         * Updates this group instance with the supplied properties
         *
@@ -1711,12 +1712,12 @@ declare module "sharepoint/rest/roles" {
      * @param baseUrl The url or Queryable which forms the parent of this fields collection
      */
         constructor(baseUrl: string | Queryable, path?: string);
-        groups: SiteGroups;
+        readonly groups: SiteGroups;
         /**
          * Get the role definition bindings for this role assignment
          *
          */
-        bindings: RoleDefinitionBindings;
+        readonly bindings: RoleDefinitionBindings;
         /**
          * Delete this role assignment
          *
@@ -1790,7 +1791,7 @@ declare module "sharepoint/rest/roles" {
         constructor(baseUrl: string | Queryable, path?: string);
     }
 }
-declare module "sharepoint/rest/queryableSecurable" {
+declare module "sharepoint/rest/queryablesecurable" {
     import { RoleAssignments } from "sharepoint/rest/roles";
     import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
     export class QueryableSecurable extends QueryableInstance {
@@ -1798,12 +1799,12 @@ declare module "sharepoint/rest/queryableSecurable" {
          * Gets the set of role assignments for this item
          *
          */
-        roleAssignments: RoleAssignments;
+        readonly roleAssignments: RoleAssignments;
         /**
          * Gets the closest securable up the security hierarchy whose permissions are applied to this list item
          *
          */
-        firstUniqueAncestorSecurableObject: QueryableInstance;
+        readonly firstUniqueAncestorSecurableObject: QueryableInstance;
         /**
          * Gets the effective permissions for the user supplied
          *
@@ -1875,125 +1876,20 @@ declare module "sharepoint/rest/files" {
          */
         constructor(baseUrl: string | Queryable, path?: string);
         /**
-         * Gets a value that specifies the user who added the file.
-         *
-         */
-        author: Queryable;
-        /**
-         * Gets a result indicating the current user who has the file checked out.
-         *
-         */
-        checkedOutByUser: Queryable;
-        /**
-         * Gets a value that returns the comment used when a document is checked in to a document library.
-         *
-         */
-        checkInComment: Queryable;
-        /**
-         * Gets a value that indicates how the file is checked out of a document library.
-         * The checkout state of a file is independent of its locked state.
-         *
-         */
-        checkOutType: Queryable;
-        /**
-         * Returns internal version of content, used to validate document equality for read purposes.
-         *
-         */
-        contentTag: Queryable;
-        /**
-         * Gets a value that specifies the customization status of the file.
-         *
-         */
-        customizedPageStatus: Queryable;
-        /**
-         * Gets the current eTag of a file
-         *
-         */
-        eTag: Queryable;
-        /**
-         * Gets a value that specifies whether the file exists.
-         *
-         */
-        exists: Queryable;
-        /**
-         * Gets the size of the file in bytes, excluding the size of any Web Parts that are used in the file.
-         */
-        length: Queryable;
-        /**
-         * Gets a value that specifies the publishing level of the file.
-         *
-         */
-        level: Queryable;
-        /**
          * Gets a value that specifies the list item field values for the list item corresponding to the file.
          *
          */
-        listItemAllFields: Item;
-        /**
-         * Gets a value that returns the user that owns the current lock on the file.
-         *
-         */
-        lockedByUser: Queryable;
-        /**
-         * Gets a value that specifies the major version of the file.
-         *
-         */
-        majorVersion: Queryable;
-        /**
-         * Gets a value that specifies the minor version of the file.
-         *
-         */
-        minorVersion: Queryable;
-        /**
-         * Gets a value that returns the user who last modified the file.
-         *
-         */
-        modifiedBy: Queryable;
-        /**
-         * Gets the name of the file including the extension.
-         *
-         */
-        name: Queryable;
-        /**
-         * Gets the server relative url of a file
-         *
-         */
-        serverRelativeUrl: Queryable;
-        /**
-         * Gets a value that specifies when the file was created.
-         *
-         */
-        timeCreated: Queryable;
-        /**
-         * Gets a value that specifies when the file was last modified.
-         *
-         */
-        timeLastModified: Queryable;
-        /**
-         * Gets a value that specifies the display name of the file.
-         *
-         */
-        title: Queryable;
-        /**
-         * Gets a value that specifies the implementation-specific version identifier of the file.
-         *
-         */
-        uiVersion: Queryable;
-        /**
-         * Gets a value that specifies the implementation-specific version identifier of the file.
-         *
-         */
-        uiVersionLabel: Queryable;
+        readonly listItemAllFields: Item;
         /**
          * Gets a collection of versions
          *
          */
-        versions: Versions;
+        readonly versions: Versions;
         /**
          * Gets the contents of the file - If the file is not JSON a custom parser function should be used with the get call
          *
          */
-        value: Queryable;
+        readonly value: Queryable;
         /**
          * Approves the file submitted for content approval with the specified comment.
          * Only documents in lists that are enabled for content approval can be approved.
@@ -2183,47 +2079,6 @@ declare module "sharepoint/rest/files" {
          */
         constructor(baseUrl: string | Queryable, path?: string);
         /**
-         * Gets a value that specifies the check-in comment.
-         *
-         */
-        checkInComment: Queryable;
-        /**
-         * Gets a value that specifies the creation date and time for the file version.
-         *
-         */
-        created: Queryable;
-        /**
-         * Gets a value that specifies the user that represents the creator of the file version.
-         *
-         */
-        createdBy: Queryable;
-        /**
-         * Gets the internal identifier for the file version.
-         *
-         */
-        id: Queryable;
-        /**
-         * Gets a value that specifies whether the file version is the current version.
-         *
-         */
-        isCurrentVersion: Queryable;
-        /**
-         * Gets a value that specifies the size of this version of the file.
-         *
-         */
-        size: Queryable;
-        /**
-         * Gets a value that specifies the relative URL of the file version based on the URL for the site or subsite.
-         *
-         */
-        url: Queryable;
-        /**
-         * Gets a value that specifies the implementation specific identifier of the file.
-         * Uses the majorVersionNumber.minorVersionNumber format, for example: 1.2
-         *
-         */
-        versionLabel: Queryable;
-        /**
         * Delete a specific version of a file.
         *
         * @param eTag Value used in the IF-Match header, by default "*"
@@ -2297,56 +2152,42 @@ declare module "sharepoint/rest/folders" {
          * Specifies the sequence in which content types are displayed.
          *
          */
-        contentTypeOrder: QueryableCollection;
+        readonly contentTypeOrder: QueryableCollection;
         /**
          * Gets this folder's files
          *
          */
-        files: Files;
+        readonly files: Files;
         /**
          * Gets this folder's sub folders
          *
          */
-        folders: Folders;
-        /**
-         * Gets this folder's item count
-         *
-         */
-        itemCount: Queryable;
+        readonly folders: Folders;
         /**
          * Gets this folder's list item
          *
          */
-        listItemAllFields: Item;
-        /**
-         * Gets the folders name
-         *
-         */
-        name: Queryable;
+        readonly listItemAllFields: Item;
         /**
          * Gets the parent folder, if available
          *
          */
-        parentFolder: Folder;
+        readonly parentFolder: Folder;
         /**
          * Gets this folder's properties
          *
          */
-        properties: QueryableInstance;
+        readonly properties: QueryableInstance;
         /**
          * Gets this folder's server relative url
          *
          */
-        serverRelativeUrl: Queryable;
+        readonly serverRelativeUrl: Queryable;
         /**
          * Gets a value that specifies the content type order.
          *
          */
-        uniqueContentTypeOrder: QueryableCollection;
-        /**
-         * Gets this folder's welcome page
-         */
-        welcomePage: Queryable;
+        readonly uniqueContentTypeOrder: QueryableCollection;
         /**
         * Delete this folder
         *
@@ -2393,116 +2234,26 @@ declare module "sharepoint/rest/contenttypes" {
          */
         constructor(baseUrl: string | Queryable, path?: string);
         /**
-         * Gets the description resource
-         */
-        descriptionResource: Queryable;
-        /**
          * Gets the column (also known as field) references in the content type.
         */
-        fieldLinks: Queryable;
+        readonly fieldLinks: Queryable;
         /**
          * Gets a value that specifies the collection of fields for the content type.
          */
-        fields: Queryable;
-        /**
-         * Gets name resource
-         */
-        nameResource: Queryable;
+        readonly fields: Queryable;
         /**
          * Gets the parent content type of the content type.
          */
-        parent: Queryable;
+        readonly parent: ContentType;
         /**
          * Gets a value that specifies the collection of workflow associations for the content type.
          */
-        workflowAssociations: Queryable;
-        /**
-         * Gets or sets a description of the content type.
-         */
-        description: Queryable;
-        /**
-         * Gets or sets a value that specifies the name of a custom display form template
-         * to use for list items that have been assigned the content type.
-         */
-        displayFormTemplateName: Queryable;
-        /**
-         * Gets or sets a value that specifies the URL of a custom display form
-         * to use for list items that have been assigned the content type.
-         */
-        displayFormUrl: Queryable;
-        /**
-         * Gets or sets a value that specifies the file path to the document template
-         * used for a new list item that has been assigned the content type.
-         */
-        documentTemplate: Queryable;
-        /**
-         * Gets a value that specifies the URL of the document template assigned to the content type.
-         */
-        documentTemplateUrl: Queryable;
-        /**
-         * Gets or sets a value that specifies the name of a custom edit form template
-         * to use for list items that have been assigned the content type.
-         */
-        editFormTemplateName: Queryable;
-        /**
-         * Gets or sets a value that specifies the URL of a custom edit form
-         * to use for list items that have been assigned the content type.
-         */
-        editFormUrl: Queryable;
-        /**
-         * Gets or sets a value that specifies the content type group for the content type.
-         */
-        group: Queryable;
-        /**
-        * Gets or sets a value that specifies whether the content type is unavailable
-        * for creation or usage directly from a user interface.
-        */
-        hidden: Queryable;
-        /**
-         * Gets or sets the JSLink for the content type custom form template.
-         * NOTE!
-         * The JSLink property is not supported on Survey or Events lists.
-         * A SharePoint calendar is an Events list.
-         */
-        jsLink: Queryable;
-        /**
-         * Gets a value that specifies the name of the content type.
-         */
-        name: Queryable;
-        /**
-         * Gets a value that specifies new form template name of the content type.
-         */
-        newFormTemplateName: Queryable;
-        /**
-        * Gets a value that specifies new form url of the content type.
-        */
-        newFormUrl: Queryable;
-        /**
-         * Gets or sets a value that specifies whether changes
-         * to the content type properties are denied.
-         */
-        readOnly: Queryable;
-        /**
-         * Gets a value that specifies the XML Schema representing the content type.
-         */
-        schemaXml: Queryable;
-        /**
-         * Gets a value that specifies a server-relative path to the content type scope of the content type.
-         */
-        scope: Queryable;
-        /**
-         * Gets or sets whether the content type can be modified.
-         */
-        sealed: Queryable;
-        /**
-         * A string representation of the value of the Id.
-         */
-        stringId: Queryable;
+        readonly workflowAssociations: Queryable;
     }
 }
 declare module "sharepoint/rest/items" {
     import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
-    import { QueryableSecurable } from "sharepoint/rest/queryableSecurable";
+    import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
     import { Folder } from "sharepoint/rest/folders";
     import { ContentType } from "sharepoint/rest/contenttypes";
     import { TypedHash } from "collections/collections";
@@ -2557,42 +2308,42 @@ declare module "sharepoint/rest/items" {
          * Gets the set of attachments for this item
          *
          */
-        attachmentFiles: QueryableCollection;
+        readonly attachmentFiles: QueryableCollection;
         /**
          * Gets the content type for this item
          *
          */
-        contentType: ContentType;
+        readonly contentType: ContentType;
         /**
          * Gets the effective base permissions for the item
          *
          */
-        effectiveBasePermissions: Queryable;
+        readonly effectiveBasePermissions: Queryable;
         /**
          * Gets the effective base permissions for the item in a UI context
          *
          */
-        effectiveBasePermissionsForUI: Queryable;
+        readonly effectiveBasePermissionsForUI: Queryable;
         /**
          * Gets the field values for this list item in their HTML representation
          *
          */
-        fieldValuesAsHTML: QueryableInstance;
+        readonly fieldValuesAsHTML: QueryableInstance;
         /**
          * Gets the field values for this list item in their text representation
          *
          */
-        fieldValuesAsText: QueryableInstance;
+        readonly fieldValuesAsText: QueryableInstance;
         /**
          * Gets the field values for this list item for use in editing controls
          *
          */
-        fieldValuesForEdit: QueryableInstance;
+        readonly fieldValuesForEdit: QueryableInstance;
         /**
          * Gets the folder associated with this list item (if this item represents a folder)
          *
          */
-        folder: Folder;
+        readonly folder: Folder;
         /**
          * Updates this list intance with the supplied properties
          *
@@ -2648,7 +2399,7 @@ declare module "sharepoint/rest/items" {
         /**
          * If true there are more results available in the set, otherwise there are not
          */
-        hasNext: boolean;
+        readonly hasNext: boolean;
         /**
          * Creats a new instance of the PagedItemCollection class from the response
          *
@@ -2708,7 +2459,7 @@ declare module "sharepoint/rest/views" {
          * @param baseUrl The url or Queryable which forms the parent of this fields collection
          */
         constructor(baseUrl: string | Queryable, path?: string);
-        fields: ViewFields;
+        readonly fields: ViewFields;
         /**
          * Updates this view intance with the supplied properties
          *
@@ -2786,6 +2537,12 @@ declare module "sharepoint/rest/fields" {
          * @param title The case-sensitive title of the field
          */
         getByTitle(title: string): Field;
+        /**
+         * Gets a field from the collection by using internal name or title
+         *
+         * @param name The case-sensitive internal name or title of the field
+         */
+        getByInternalNameOrTitle(name: string): Field;
         /**
          * Gets a list from the collection by guid id
          *
@@ -2881,119 +2638,6 @@ declare module "sharepoint/rest/fields" {
          * @param baseUrl The url or Queryable which forms the parent of this field instance
          */
         constructor(baseUrl: string | Queryable, path?: string);
-        /**
-          * Gets a value that specifies whether the field can be deleted.
-          */
-        canBeDeleted: Queryable;
-        /**
-         * Gets a value that specifies the default value for the field.
-         */
-        defaultValue: Queryable;
-        /**
-         * Gets a value that specifies the description of the field.
-         */
-        description: Queryable;
-        /**
-         * Gets a value that specifies the reading order of the field.
-         */
-        direction: Queryable;
-        /**
-         * Gets a value that specifies whether to require unique field values in a list or library column.
-         */
-        enforceUniqueValues: Queryable;
-        /**
-         * Gets the name of the entity property for the list item entity that uses this field.
-         */
-        entityPropertyName: Queryable;
-        /**
-         * Gets a value that specifies whether list items in the list can be filtered by the field value.
-         */
-        filterable: Queryable;
-        /**
-         * Gets a Boolean value that indicates whether the field derives from a base field type.
-         */
-        fromBaseType: Queryable;
-        /**
-         * Gets a value that specifies the field group.
-         */
-        group: Queryable;
-        /**
-         * Gets a value that specifies whether the field is hidden in list views and list forms.
-         */
-        hidden: Queryable;
-        /**
-         * Gets a value that specifies the field identifier.
-         */
-        id: Queryable;
-        /**
-         * Gets a Boolean value that specifies whether the field is indexed.
-         */
-        indexed: Queryable;
-        /**
-         * Gets a value that specifies the field internal name.
-         */
-        internalName: Queryable;
-        /**
-         * Gets the name of an external JS file containing any client rendering logic for fields of this type.
-         */
-        jsLink: Queryable;
-        /**
-         * Gets a value that specifies whether the value of the field is read-only.
-         */
-        readOnlyField: Queryable;
-        /**
-         * Gets a value that specifies whether the field requires a value.
-         */
-        required: Queryable;
-        /**
-         * Gets a value that specifies the XML schema that defines the field.
-         */
-        schemaXml: Queryable;
-        /**
-         * Gets a value that specifies the server-relative URL of the list or the site to which the field belongs.
-         */
-        scope: Queryable;
-        /**
-         * Gets a value that specifies whether properties on the field cannot be changed and whether the field cannot be deleted.
-         */
-        sealed: Queryable;
-        /**
-         * Gets a value that specifies whether list items in the list can be sorted by the field value.
-         */
-        sortable: Queryable;
-        /**
-         * Gets a value that specifies a customizable identifier of the field.
-         */
-        staticName: Queryable;
-        /**
-         * Gets value that specifies the display name of the field.
-         */
-        title: Queryable;
-        /**
-         * Gets a value that specifies the type of the field. Represents a FieldType value.
-         * See FieldType in the .NET client object model reference for a list of field type values.
-         */
-        fieldTypeKind: Queryable;
-        /**
-         * Gets a value that specifies the type of the field.
-         */
-        typeAsString: Queryable;
-        /**
-         * Gets a value that specifies the display name for the type of the field.
-         */
-        typeDisplayName: Queryable;
-        /**
-         * Gets a value that specifies the description for the type of the field.
-         */
-        typeShortDescription: Queryable;
-        /**
-         * Gets a value that specifies the data validation criteria for the value of the field.
-         */
-        validationFormula: Queryable;
-        /**
-         * Gets a value that specifies the error message returned when data validation fails for the field.
-         */
-        validationMessage: Queryable;
         /**
          * Updates this field intance with the supplied properties
          *
@@ -3105,7 +2749,7 @@ declare module "sharepoint/rest/lists" {
     import { Fields } from "sharepoint/rest/fields";
     import { Forms } from "sharepoint/rest/forms";
     import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
-    import { QueryableSecurable } from "sharepoint/rest/queryableSecurable";
+    import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
     import { TypedHash } from "collections/collections";
     import { ControlMode, RenderListData, ChangeQuery, CamlQuery, ChangeLogitemQuery, ListFormData } from "sharepoint/rest/types";
     import { UserCustomActions } from "sharepoint/rest/usercustomactions";
@@ -3178,57 +2822,57 @@ declare module "sharepoint/rest/lists" {
          * Gets the content types in this list
          *
          */
-        contentTypes: ContentTypes;
+        readonly contentTypes: ContentTypes;
         /**
          * Gets the items in this list
          *
          */
-        items: Items;
+        readonly items: Items;
         /**
          * Gets the views in this list
          *
          */
-        views: Views;
+        readonly views: Views;
         /**
          * Gets the fields in this list
          *
          */
-        fields: Fields;
+        readonly fields: Fields;
         /**
          * Gets the forms in this list
          *
          */
-        forms: Forms;
+        readonly forms: Forms;
         /**
          * Gets the default view of this list
          *
          */
-        defaultView: QueryableInstance;
+        readonly defaultView: QueryableInstance;
         /**
          * Get all custom actions on a site collection
          *
          */
-        userCustomActions: UserCustomActions;
+        readonly userCustomActions: UserCustomActions;
         /**
          * Gets the effective base permissions of this list
          *
          */
-        effectiveBasePermissions: Queryable;
+        readonly effectiveBasePermissions: Queryable;
         /**
          * Gets the event receivers attached to this list
          *
          */
-        eventReceivers: QueryableCollection;
+        readonly eventReceivers: QueryableCollection;
         /**
          * Gets the related fields of this list
          *
          */
-        relatedFields: Queryable;
+        readonly relatedFields: Queryable;
         /**
          * Gets the IRM settings for this list
          *
          */
-        informationRightsManagementSettings: Queryable;
+        readonly informationRightsManagementSettings: Queryable;
         /**
          * Gets a view by view guid id
          *
@@ -3253,6 +2897,22 @@ declare module "sharepoint/rest/lists" {
         getChanges(query: ChangeQuery): Promise<any>;
         /**
          * Returns a collection of items from the list based on the specified query.
+         *
+         * @param CamlQuery The Query schema of Collaborative Application Markup
+         * Language (CAML) is used in various ways within the context of Microsoft SharePoint Foundation
+         * to define queries against list data.
+         * see:
+         *
+         * https://msdn.microsoft.com/en-us/library/office/ms467521.aspx
+         *
+         * @param expands A URI with a $expand System Query Option indicates that Entries associated with
+         * the Entry or Collection of Entries identified by the Resource Path
+         * section of the URI must be represented inline (i.e. eagerly loaded).
+         * see:
+         *
+         * https://msdn.microsoft.com/en-us/library/office/fp142385.aspx
+         *
+         * http://www.odata.org/documentation/odata-version-2-0/uri-conventions/#ExpandSystemQueryOption
          */
         getItemsByCAMLQuery(query: CamlQuery, ...expands: string[]): Promise<any>;
         /**
@@ -3339,17 +2999,17 @@ declare module "sharepoint/rest/navigation" {
          * Gets the quicklaunch navigation for the current context
          *
          */
-        quicklaunch: QuickLaunch;
+        readonly quicklaunch: QuickLaunch;
         /**
          * Gets the top bar navigation navigation for the current context
          *
          */
-        topNavigationBar: TopNavigationBar;
+        readonly topNavigationBar: TopNavigationBar;
     }
 }
 declare module "sharepoint/rest/webs" {
     import { Queryable, QueryableCollection } from "sharepoint/rest/queryable";
-    import { QueryableSecurable } from "sharepoint/rest/queryableSecurable";
+    import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
     import { Lists } from "sharepoint/rest/lists";
     import { Fields } from "sharepoint/rest/fields";
     import { Navigation } from "sharepoint/rest/navigation";
@@ -3384,57 +3044,57 @@ declare module "sharepoint/rest/webs" {
      */
     export class Web extends QueryableSecurable {
         constructor(baseUrl: string | Queryable, path?: string);
-        webs: Webs;
+        readonly webs: Webs;
         /**
          * Get the content types available in this web
          *
          */
-        contentTypes: ContentTypes;
+        readonly contentTypes: ContentTypes;
         /**
          * Get the lists in this web
          *
          */
-        lists: Lists;
+        readonly lists: Lists;
         /**
          * Gets the fields in this web
          *
          */
-        fields: Fields;
+        readonly fields: Fields;
         /**
          * Gets the available fields in this web
          *
          */
-        availablefields: Fields;
+        readonly availablefields: Fields;
         /**
          * Get the navigation options in this web
          *
          */
-        navigation: Navigation;
+        readonly navigation: Navigation;
         /**
          * Gets the site users
          *
          */
-        siteUsers: SiteUsers;
+        readonly siteUsers: SiteUsers;
         /**
          * Gets the site groups
          *
          */
-        siteGroups: SiteGroups;
+        readonly siteGroups: SiteGroups;
         /**
          * Get the folders in this web
          *
          */
-        folders: Folders;
+        readonly folders: Folders;
         /**
          * Get all custom actions on a site
          *
          */
-        userCustomActions: UserCustomActions;
+        readonly userCustomActions: UserCustomActions;
         /**
          * Gets the collection of RoleDefinition resources.
          *
          */
-        roleDefinitions: RoleDefinitions;
+        readonly roleDefinitions: RoleDefinitions;
         /**
          * Get a folder by server relative url
          *
@@ -3447,6 +3107,12 @@ declare module "sharepoint/rest/webs" {
          * @param fileRelativeUrl the server relative path to the file (including /sites/ if applicable)
          */
         getFileByServerRelativeUrl(fileRelativeUrl: string): File;
+        /**
+         * Get a list by server relative url (list's root folder)
+         *
+         * @param listRelativeUrl the server relative path to the list's root folder (including /sites/ if applicable)
+         */
+        getList(listRelativeUrl: string): List;
         /**
          * Updates this web intance with the supplied properties
          *
@@ -3507,7 +3173,7 @@ declare module "sharepoint/rest/webs" {
          * Gets the custom list templates for the site.
          *
          */
-        customListTemplate: QueryableCollection;
+        readonly customListTemplate: QueryableCollection;
         /**
          * Returns the user corresponding to the specified member identifier for the current site.
          *
@@ -3560,13 +3226,13 @@ declare module "configuration/providers/spListConfigurationProvider" {
          *
          * @return {string} Url address of the site
          */
-        web: Web;
+        readonly web: Web;
         /**
          * Gets the title of the SharePoint list, which contains the configuration settings
          *
          * @return {string} List title
          */
-        listTitle: string;
+        readonly listTitle: string;
         /**
          * Loads the configuration values from the SharePoint list
          *
@@ -3606,12 +3272,6 @@ declare module "configuration/configuration" {
      */
     export class Settings {
         /**
-         * Creates a new instance of the settings class
-         *
-         * @constructor
-         */
-        constructor();
-        /**
          * Set of pre-defined providers which are available from this library
          */
         Providers: typeof providers;
@@ -3619,6 +3279,12 @@ declare module "configuration/configuration" {
          * The settings currently stored in this instance
          */
         private _settings;
+        /**
+         * Creates a new instance of the settings class
+         *
+         * @constructor
+         */
+        constructor();
         /**
          * Adds a new single setting, or overwrites a previous setting with the same key
          *
@@ -3679,49 +3345,49 @@ declare module "sharepoint/rest/search" {
          * A Boolean value that specifies whether the result tables that are returned for
          * the result block are mixed with the result tables that are returned for the original query.
          */
-        EnableInterleaving?: Boolean;
+        EnableInterleaving?: boolean;
         /**
          * A Boolean value that specifies whether stemming is enabled.
          */
-        EnableStemming?: Boolean;
+        EnableStemming?: boolean;
         /**
          * A Boolean value that specifies whether duplicate items are removed from the results.
          */
-        TrimDuplicates?: Boolean;
+        TrimDuplicates?: boolean;
         /**
          * A Boolean value that specifies whether the exact terms in the search query are used to find matches, or if nicknames are used also.
          */
-        EnableNicknames?: Boolean;
+        EnableNicknames?: boolean;
         /**
          * A Boolean value that specifies whether the query uses the FAST Query Language (FQL).
          */
-        EnableFql?: Boolean;
+        EnableFql?: boolean;
         /**
          * A Boolean value that specifies whether the phonetic forms of the query terms are used to find matches.
          */
-        EnablePhonetic?: Boolean;
+        EnablePhonetic?: boolean;
         /**
          * A Boolean value that specifies whether to perform result type processing for the query.
          */
-        BypassResultTypes?: Boolean;
+        BypassResultTypes?: boolean;
         /**
          * A Boolean value that specifies whether to return best bet results for the query.
          * This parameter is used only when EnableQueryRules is set to true, otherwise it is ignored.
          */
-        ProcessBestBets?: Boolean;
+        ProcessBestBets?: boolean;
         /**
          * A Boolean value that specifies whether to enable query rules for the query.
          */
-        EnableQueryRules?: Boolean;
+        EnableQueryRules?: boolean;
         /**
          * A Boolean value that specifies whether to sort search results.
          */
-        EnableSorting?: Boolean;
+        EnableSorting?: boolean;
         /**
          * Specifies whether to return block rank log information in the BlockRankLog property of the interleaved result table.
          * A block rank log contains the textual information on the block score and the documents that were de-duplicated.
          */
-        GenerateBlockRankLog?: Boolean;
+        GenerateBlockRankLog?: boolean;
         /**
          * The result source ID to use for executing the search query.
          */
@@ -3734,18 +3400,18 @@ declare module "sharepoint/rest/search" {
          * The first row that is included in the search results that are returned.
          * You use this parameter when you want to implement paging for search results.
          */
-        StartRow?: Number;
+        StartRow?: number;
         /**
          * The maximum number of rows overall that are returned in the search results.
          * Compared to RowsPerPage, RowLimit is the maximum number of rows returned overall.
          */
-        RowLimit?: Number;
+        RowLimit?: number;
         /**
          * The maximum number of rows to return per page.
          * Compared to RowLimit, RowsPerPage refers to the maximum number of rows to return per page,
          * and is used primarily when you want to implement paging for search results.
          */
-        RowsPerPage?: Number;
+        RowsPerPage?: number;
         /**
          * The managed properties to return in the search results.
          */
@@ -3753,7 +3419,7 @@ declare module "sharepoint/rest/search" {
         /**
          * The locale ID (LCID) for the query.
          */
-        Culture?: Number;
+        Culture?: number;
         /**
          * The set of refinement filters used when issuing a refinement query (FQL)
          */
@@ -3773,7 +3439,7 @@ declare module "sharepoint/rest/search" {
         /**
          * The amount of time in milliseconds before the query request times out.
          */
-        Timeout?: Number;
+        Timeout?: number;
         /**
          * The properties to highlight in the search result summary when the property value matches the search terms entered by the user.
          */
@@ -3797,7 +3463,7 @@ declare module "sharepoint/rest/search" {
         /**
          *  A Boolean value that specifies whether to return personal favorites with the search results.
          */
-        ProcessPersonalFavorites?: Boolean;
+        ProcessPersonalFavorites?: boolean;
         /**
          * The location of the queryparametertemplate.xml file. This file is used to enable anonymous users to make Search REST queries.
          */
@@ -3811,33 +3477,33 @@ declare module "sharepoint/rest/search" {
         /**
          * The number of properties to show hit highlighting for in the search results.
          */
-        HitHighlightedMultivaluePropertyLimit?: Number;
+        HitHighlightedMultivaluePropertyLimit?: number;
         /**
          * A Boolean value that specifies whether the hit highlighted properties can be ordered.
          */
-        EnableOrderingHitHighlightedProperty?: Boolean;
+        EnableOrderingHitHighlightedProperty?: boolean;
         /**
          * The managed properties that are used to determine how to collapse individual search results.
          * Results are collapsed into one or a specified number of results if they match any of the individual collapse specifications.
          * In a collapse specification, results are collapsed if their properties match all individual properties in the collapse specification.
          */
-        CollapseSpecification?: String;
+        CollapseSpecification?: string;
         /**
          * The locale identifier (LCID) of the user interface
          */
-        UIlanguage?: Number;
+        UIlanguage?: number;
         /**
          * The preferred number of characters to display in the hit-highlighted summary generated for a search result.
          */
-        DesiredSnippetLength?: Number;
+        DesiredSnippetLength?: number;
         /**
          * The maximum number of characters to display in the hit-highlighted summary generated for a search result.
          */
-        MaxSnippetLength?: Number;
+        MaxSnippetLength?: number;
         /**
          * The number of characters to display in the result summary for a search result.
          */
-        SummaryLength?: Number;
+        SummaryLength?: number;
     }
     /**
      * Describes the search API
@@ -3861,17 +3527,17 @@ declare module "sharepoint/rest/search" {
      * Describes the SearchResults class, which returns the formatted and raw version of the query response
      */
     export class SearchResults {
+        PrimarySearchResults: any;
+        RawSearchResults: any;
+        RowCount: number;
+        TotalRows: number;
+        TotalRowsIncludingDuplicates: number;
+        ElapsedTime: number;
         /**
          * Creates a new instance of the SearchResult class
          *
          */
         constructor(rawResponse: any);
-        PrimarySearchResults: Object;
-        RawSearchResults: Object;
-        RowCount: Number;
-        TotalRows: Number;
-        TotalRowsIncludingDuplicates: Number;
-        ElapsedTime: Number;
         /**
          * Formats a search results array
          *
@@ -3921,7 +3587,7 @@ declare module "sharepoint/rest/search" {
         /**
          * The rank boosting
          */
-        Boost: Number;
+        Boost: number;
         /**
         * The rank boosting
         */
@@ -3978,12 +3644,12 @@ declare module "sharepoint/rest/site" {
          * Gets the root web of the site collection
          *
          */
-        rootWeb: Web;
+        readonly rootWeb: Web;
         /**
          * Get all custom actions on a site collection
          *
          */
-        userCustomActions: UserCustomActions;
+        readonly userCustomActions: UserCustomActions;
         /**
          * Gets the context information for the site.
          */
@@ -4020,16 +3686,16 @@ declare module "sharepoint/rest/userprofiles" {
     import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
     import * as Types from "sharepoint/rest/types";
     export class UserProfileQuery extends QueryableInstance {
-        constructor(baseUrl: string | Queryable, path?: string);
         private profileLoader;
+        constructor(baseUrl: string | Queryable, path?: string);
         /**
          * The URL of the edit profile page for the current user.
          */
-        editProfileLink: Promise<string>;
+        readonly editProfileLink: Promise<string>;
         /**
          * A Boolean value that indicates whether the current user's People I'm Following list is public.
          */
-        isMyPeopleListPublic: Promise<boolean>;
+        readonly isMyPeopleListPublic: Promise<boolean>;
         /**
          * A Boolean value that indicates whether the current user's People I'm Following list is public.
          *
@@ -4058,12 +3724,12 @@ declare module "sharepoint/rest/userprofiles" {
          * Gets the people who are following the current user.
          *
          */
-        myFollowers: QueryableCollection;
+        readonly myFollowers: QueryableCollection;
         /**
          * Gets user properties for the current user.
          *
          */
-        myProperties: QueryableInstance;
+        readonly myProperties: QueryableInstance;
         /**
          * Gets the people who the specified user is following.
          *
@@ -4080,7 +3746,7 @@ declare module "sharepoint/rest/userprofiles" {
          * Gets the most popular tags.
          *
          */
-        trendingTags: Promise<Types.HashTagCollection>;
+        readonly trendingTags: Promise<Types.HashTagCollection>;
         /**
          * Gets the specified user profile property for the specified user.
          *
@@ -4117,11 +3783,11 @@ declare module "sharepoint/rest/userprofiles" {
          * Gets the user profile of the site owner.
          *
          */
-        ownerUserProfile: Promise<Types.UserProfile>;
+        readonly ownerUserProfile: Promise<Types.UserProfile>;
         /**
          * Gets the user profile that corresponds to the current user.
          */
-        userProfile: Promise<any>;
+        readonly userProfile: Promise<any>;
         /**
          * Enqueues creating a personal site for this user, which can be used to share documents, web pages, and other files.
          *
@@ -4156,17 +3822,17 @@ declare module "sharepoint/rest/rest" {
          * Begins a site collection scoped REST request
          *
          */
-        site: Site;
+        readonly site: Site;
         /**
          * Begins a web scoped REST request
          *
          */
-        web: Web;
+        readonly web: Web;
         /**
          * Access to user profile methods
          *
          */
-        profiles: UserProfileQuery;
+        readonly profiles: UserProfileQuery;
         /**
          * Creates a new batch object for use with the Queryable.addToBatch method
          *
@@ -4196,6 +3862,33 @@ declare module "sharepoint/rest/rest" {
          */
         private _cdImpl<T>(factory, addInWebUrl, hostWebUrl, urlPart);
     }
+}
+declare module "sharepoint/rest/index" {
+    export * from "sharepoint/rest/caching";
+    export { FieldAddResult, FieldUpdateResult } from "sharepoint/rest/fields";
+    export { CheckinType, FileAddResult, WebPartsPersonalizationScope, MoveOperations, TemplateFileType } from "sharepoint/rest/files";
+    export { FolderAddResult } from "sharepoint/rest/folders";
+    export { ItemAddResult, ItemUpdateResult, PagedItemCollection } from "sharepoint/rest/items";
+    export { ListAddResult, ListUpdateResult, ListEnsureResult } from "sharepoint/rest/lists";
+    export { extractOdataId, ODataParser, ODataParserBase, ODataDefaultParser, ODataRaw, ODataValue, ODataEntity, ODataEntityArray } from "sharepoint/rest/odata";
+    export { RoleDefinitionUpdateResult, RoleDefinitionAddResult, RoleDefinitionBindings } from "sharepoint/rest/roles";
+    export { SearchQuery, SearchResult, Sort, SortDirection, ReorderingRule, ReorderingRuleMatchType, QueryPropertyValueType } from "sharepoint/rest/search";
+    export { Site } from "sharepoint/rest/site";
+    export { SiteGroupAddResult } from "sharepoint/rest/sitegroups";
+    export { UserUpdateResult, UserProps } from "sharepoint/rest/siteusers";
+    export * from "sharepoint/rest/types";
+    export { UserCustomActionAddResult, UserCustomActionUpdateResult } from "sharepoint/rest/usercustomactions";
+    export { ViewAddResult, ViewUpdateResult } from "sharepoint/rest/views";
+    export { Web, WebAddResult, WebUpdateResult, GetCatalogResult } from "sharepoint/rest/webs";
+}
+declare module "types/index" {
+    export * from "sharepoint/rest/index";
+    export { FetchOptions, HttpClient } from "net/httpclient";
+    export { IConfigurationProvider } from "configuration/configuration";
+    export { NodeClientData, LibraryConfiguration } from "configuration/pnplibconfig";
+    export { TypedHash, Dictionary } from "collections/collections";
+    export { Util } from "utils/util";
+    export * from "utils/logging";
 }
 declare module "pnp" {
     import { Util } from "utils/util";
@@ -4231,6 +3924,10 @@ declare module "pnp" {
      * Allows for the configuration of the library
      */
     export const setup: (config: LibraryConfiguration) => void;
+    /**
+     * Expose a subset of classes from the library for public consumption
+     */
+    export * from "types/index";
     let Def: {
         config: Settings;
         log: typeof Logger;
@@ -4241,8 +3938,8 @@ declare module "pnp" {
     };
     export default Def;
 }
-declare module "net/NodeFetchClientBrowser" {
-    import { HttpClientImpl } from "net/HttpClient";
+declare module "net/nodefetchclientbrowser" {
+    import { HttpClientImpl } from "net/httpclient";
     /**
      * This module is substituted for the NodeFetchClient.ts during the packaging process. This helps to reduce the pnp.js file size by
      * not including all of the node dependencies
@@ -4539,7 +4236,7 @@ declare module "sharepoint/provisioning/util" {
     }
 }
 declare module "sharepoint/provisioning/objecthandlers/objecthandlerbase" {
-    import { HttpClient } from "net/HttpClient";
+    import { HttpClient } from "net/httpclient";
     /**
      * Describes the Object Handler Base
      */

@@ -1,6 +1,7 @@
 "use strict";
 
 import { HttpClientImpl } from "./httpClient";
+import { Util } from "../utils/util";
 
 /**
  * Makes requests using the SP.RequestExecutor library.
@@ -33,20 +34,25 @@ export class SPRequestExecutorClient implements HttpClientImpl {
         }
 
         return new Promise((resolve, reject) => {
-            executor.executeAsync(
-                {
-                    body: options.body,
-                    error: (error: SP.ResponseInfo) => {
-                        reject(this.convertToResponse(error));
-                    },
-                    headers: headers,
-                    method: options.method,
-                    success: (response: SP.ResponseInfo) => {
-                        resolve(this.convertToResponse(response));
-                    },
-                    url: url,
-                }
-            );
+
+            let requestOptions = {
+                error: (error: SP.ResponseInfo) => {
+                    reject(this.convertToResponse(error));
+                },
+                headers: headers,
+                method: options.method,
+                success: (response: SP.ResponseInfo) => {
+                    resolve(this.convertToResponse(response));
+                },
+                url: url,
+            };
+
+            if (options.body) {
+                Util.extend(requestOptions, { body: options.body });
+            } else {
+                Util.extend(requestOptions, { binaryStringRequestBody: true });
+            }
+            executor.executeAsync(requestOptions);
         });
     }
 

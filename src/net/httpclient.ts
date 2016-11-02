@@ -9,7 +9,7 @@ import { NodeFetchClient } from "./nodefetchclient";
 
 export interface FetchOptions {
     method?: string;
-    headers?: HeaderInit | { [index: string]: string };
+    headers?: HeadersInit | { [index: string]: string };
     body?: BodyInit;
     mode?: string | RequestMode;
     credentials?: string | RequestCredentials;
@@ -18,13 +18,13 @@ export interface FetchOptions {
 
 export class HttpClient {
 
+    private _digestCache: DigestCache;
+    private _impl: HttpClientImpl;
+
     constructor() {
         this._impl = this.getFetchImpl();
         this._digestCache = new DigestCache(this);
     }
-
-    private _digestCache: DigestCache;
-    private _impl: HttpClientImpl;
 
     public fetch(url: string, options: FetchOptions = {}): Promise<Response> {
 
@@ -50,7 +50,7 @@ export class HttpClient {
         }
 
         if (!headers.has("X-ClientService-ClientTag")) {
-            headers.append("X-ClientService-ClientTag", "SharePoint.PnP.JavaScriptCore");
+            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.5");
         }
 
         opts = Util.extend(opts, { headers: headers });

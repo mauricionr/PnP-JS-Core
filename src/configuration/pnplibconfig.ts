@@ -2,6 +2,8 @@
 
 import { TypedHash } from "../collections/collections";
 
+declare var global: any;
+
 export interface NodeClientData {
     clientId: string;
     clientSecret: string;
@@ -43,6 +45,14 @@ export interface LibraryConfiguration {
 
 export class RuntimeConfigImpl {
 
+    private _headers: TypedHash<string>;
+    private _defaultCachingStore: "session" | "local";
+    private _defaultCachingTimeoutSeconds: number;
+    private _globalCacheDisable: boolean;
+    private _useSPRequestExecutor: boolean;
+    private _useNodeClient: boolean;
+    private _nodeClientData: NodeClientData;
+
     constructor() {
         // these are our default values for the library
         this._headers = null;
@@ -51,14 +61,6 @@ export class RuntimeConfigImpl {
         this._globalCacheDisable = false;
         this._useSPRequestExecutor = false;
     }
-
-    private _headers: TypedHash<string>;
-    private _defaultCachingStore: "session" | "local";
-    private _defaultCachingTimeoutSeconds: number;
-    private _globalCacheDisable: boolean;
-    private _useSPRequestExecutor: boolean;
-    private _useNodeClient: boolean;
-    private _nodeClientData: NodeClientData;
 
     public set(config: LibraryConfiguration): void {
 
@@ -86,6 +88,11 @@ export class RuntimeConfigImpl {
             this._useNodeClient = true;
             this._useSPRequestExecutor = false; // just don't allow this conflict
             this._nodeClientData = config.nodeClientOptions;
+            // this is to help things work when running in node.js, specifically batching
+            // we shim the _spPageContextInfo object
+            global._spPageContextInfo = {
+                webAbsoluteUrl: config.nodeClientOptions.siteUrl,
+            };
         }
     }
 

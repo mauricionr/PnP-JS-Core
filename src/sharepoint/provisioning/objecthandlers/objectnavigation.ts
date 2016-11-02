@@ -1,10 +1,10 @@
 "use strict";
 
 import { Util } from "../util";
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
+import { ObjectHandlerBase } from "./objecthandlerbase";
 import { INavigation } from "../schema/inavigation";
 import { INavigationNode } from "../schema/inavigationnode";
-import { HttpClient } from "../../../net/HttpClient";
+import { HttpClient } from "../../../net/httpclient";
 
 /**
  * Describes the Navigation Object Handler

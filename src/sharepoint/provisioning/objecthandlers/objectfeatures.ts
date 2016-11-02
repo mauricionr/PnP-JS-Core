@@ -1,7 +1,7 @@
 "use strict";
 
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
-import { IFeature } from "../schema/ifeature";
+import { ObjectHandlerBase } from "./objecthandlerbase";
+import { IFeature } from "../schema/IFeature";
 
 /**
  * Describes the Features Object Handler

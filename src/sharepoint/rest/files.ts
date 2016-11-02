@@ -83,179 +83,11 @@ export class File extends QueryableInstance {
     }
 
     /**
-     * Gets a value that specifies the user who added the file.
-     * 
-     */
-    public get author(): Queryable {
-        return new Queryable(this, "author");
-    }
-
-    /**
-     * Gets a result indicating the current user who has the file checked out.
-     * 
-     */
-    public get checkedOutByUser(): Queryable {
-        return new Queryable(this, "checkedOutByUser");
-    }
-
-    /**
-     * Gets a value that returns the comment used when a document is checked in to a document library.
-     * 
-     */
-    public get checkInComment(): Queryable {
-        return new Queryable(this, "checkInComment");
-    }
-
-    /**
-     * Gets a value that indicates how the file is checked out of a document library.
-     * The checkout state of a file is independent of its locked state.
-     * 
-     */
-    public get checkOutType(): Queryable {
-        return new Queryable(this, "checkOutType");
-    }
-
-    /**
-     * Returns internal version of content, used to validate document equality for read purposes.
-     * 
-     */
-    public get contentTag(): Queryable {
-        return new Queryable(this, "contentTag");
-    }
-
-    /**
-     * Gets a value that specifies the customization status of the file.
-     * 
-     */
-    public get customizedPageStatus(): Queryable {
-        return new Queryable(this, "customizedPageStatus");
-    }
-
-    /**
-     * Gets the current eTag of a file
-     * 
-     */
-    public get eTag(): Queryable {
-        return new Queryable(this, "eTag");
-    }
-
-    /**
-     * Gets a value that specifies whether the file exists.
-     * 
-     */
-    public get exists(): Queryable {
-        return new Queryable(this, "exists");
-    }
-
-    /**
-     * Gets the size of the file in bytes, excluding the size of any Web Parts that are used in the file.
-     */
-    public get length(): Queryable {
-        return new Queryable(this, "length");
-    }
-
-    /**
-     * Gets a value that specifies the publishing level of the file.
-     * 
-     */
-    public get level(): Queryable {
-        return new Queryable(this, "level");
-    }
-
-    /**
      * Gets a value that specifies the list item field values for the list item corresponding to the file.
      * 
      */
     public get listItemAllFields(): Item {
         return new Item(this, "listItemAllFields");
-    }
-
-    /**
-     * Gets a value that returns the user that owns the current lock on the file.
-     * 
-     */
-    public get lockedByUser(): Queryable {
-        return new Queryable(this, "lockedByUser");
-    }
-
-    /**
-     * Gets a value that specifies the major version of the file.
-     * 
-     */
-    public get majorVersion(): Queryable {
-        return new Queryable(this, "majorVersion");
-    }
-
-    /**
-     * Gets a value that specifies the minor version of the file.
-     * 
-     */
-    public get minorVersion(): Queryable {
-        return new Queryable(this, "minorVersion");
-    }
-
-    /**
-     * Gets a value that returns the user who last modified the file.
-     * 
-     */
-    public get modifiedBy(): Queryable {
-        return new Queryable(this, "modifiedBy");
-    }
-
-    /**
-     * Gets the name of the file including the extension.
-     * 
-     */
-    public get name(): Queryable {
-        return new Queryable(this, "name");
-    }
-
-    /**
-     * Gets the server relative url of a file
-     * 
-     */
-    public get serverRelativeUrl(): Queryable {
-        return new Queryable(this, "serverRelativeUrl");
-    }
-
-    /**
-     * Gets a value that specifies when the file was created.
-     * 
-     */
-    public get timeCreated(): Queryable {
-        return new Queryable(this, "timeCreated");
-    }
-
-    /**
-     * Gets a value that specifies when the file was last modified.
-     * 
-     */
-    public get timeLastModified(): Queryable {
-        return new Queryable(this, "timeLastModified");
-    }
-
-    /**
-     * Gets a value that specifies the display name of the file.
-     * 
-     */
-    public get title(): Queryable {
-        return new Queryable(this, "title");
-    }
-
-    /**
-     * Gets a value that specifies the implementation-specific version identifier of the file.
-     * 
-     */
-    public get uiVersion(): Queryable {
-        return new Queryable(this, "uiVersion");
-    }
-
-    /**
-     * Gets a value that specifies the implementation-specific version identifier of the file.
-     * 
-     */
-    public get uiVersionLabel(): Queryable {
-        return new Queryable(this, "uiVersionLabel");
     }
 
     /**
@@ -471,7 +303,9 @@ export class File extends QueryableInstance {
      * @param comment The comment for the unpublish operation. Its length must be <= 1023.
      */
     public unpublish(comment = ""): Promise<void> {
-        // TODO: Enforce comment length <= 1023
+        if (comment.length > 1023) {
+            throw new Error("The maximum comment length is 1023 characters.");
+        }
         return new File(this, `unpublish(comment='${comment}')`).post();
     }
 }
@@ -553,71 +387,6 @@ export class Version extends QueryableInstance {
      */
     constructor(baseUrl: string | Queryable, path?: string) {
         super(baseUrl, path);
-    }
-
-    /**
-     * Gets a value that specifies the check-in comment.
-     * 
-     */
-    public get checkInComment(): Queryable {
-        return new Queryable(this, "checkInComment");
-    }
-
-    /**
-     * Gets a value that specifies the creation date and time for the file version.
-     * 
-     */
-    public get created(): Queryable {
-        return new Queryable(this, "created");
-    }
-
-    /**
-     * Gets a value that specifies the user that represents the creator of the file version.
-     * 
-     */
-    public get createdBy(): Queryable {
-        return new Queryable(this, "createdBy");
-    }
-
-    /**
-     * Gets the internal identifier for the file version.
-     * 
-     */
-    public get id(): Queryable {
-        return new Queryable(this, "id");
-    }
-
-    /**
-     * Gets a value that specifies whether the file version is the current version.
-     * 
-     */
-    public get isCurrentVersion(): Queryable {
-        return new Queryable(this, "isCurrentVersion");
-    }
-
-    /**
-     * Gets a value that specifies the size of this version of the file.
-     * 
-     */
-    public get size(): Queryable {
-        return new Queryable(this, "size");
-    }
-
-    /**
-     * Gets a value that specifies the relative URL of the file version based on the URL for the site or subsite.
-     * 
-     */
-    public get url(): Queryable {
-        return new Queryable(this, "url");
-    }
-
-    /**
-     * Gets a value that specifies the implementation specific identifier of the file.
-     * Uses the majorVersionNumber.minorVersionNumber format, for example: 1.2
-     * 
-     */
-    public get versionLabel(): Queryable {
-        return new Queryable(this, "versionLabel");
     }
 
     /**

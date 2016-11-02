@@ -22,15 +22,6 @@ export interface IConfigurationProvider {
 export class Settings {
 
     /**
-     * Creates a new instance of the settings class
-     * 
-     * @constructor
-     */
-    constructor() {
-        this._settings = new Collections.Dictionary<string>();
-    }
-
-    /**
      * Set of pre-defined providers which are available from this library
      */
     public Providers = providers;
@@ -39,6 +30,15 @@ export class Settings {
      * The settings currently stored in this instance
      */
     private _settings: Collections.Dictionary<string>;
+
+    /**
+     * Creates a new instance of the settings class
+     * 
+     * @constructor
+     */
+    constructor() {
+        this._settings = new Collections.Dictionary<string>();
+    }
 
     /**
      * Adds a new single setting, or overwrites a previous setting with the same key

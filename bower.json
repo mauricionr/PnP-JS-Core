@@ -33,9 +33,11 @@
         "server-root/",
         "src/",
         "tests/",
+        "typings.json",
         "buildtasks/",
-        "typings.json/",
-        "docs/"
+        "typings.json",
+        "docs/",
+        "typedoctheme/"
     ],
     "repository": {
         "type": "git",

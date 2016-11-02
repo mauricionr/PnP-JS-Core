@@ -2,10 +2,10 @@
 
 import * as CoreUtil from "../../../utils/util";
 import { Util } from "../util";
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
-import { IFile } from "../schema/ifile";
-import { IWebPart } from "../schema/iwebpart";
-import { IHiddenView } from "../schema/ihiddenview";
+import { ObjectHandlerBase } from "./objecthandlerbase";
+import { IFile } from "../schema/IFile";
+import { IWebPart } from "../schema/IWebPart";
+import { IHiddenView } from "../schema/IHiddenView";
 
 /**
  * Describes the Files Object Handler

@@ -1,6 +1,6 @@
 "use strict";
 
-import { IRoleAssignment } from "./iroleassignment";
+import { IRoleAssignment } from "./IRoleAssignment";
 
 export interface ISecurity {
     BreakRoleInheritance: boolean;
