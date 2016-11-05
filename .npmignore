@@ -8,6 +8,7 @@ settings.js
 settings.example.js
 tsconfig.json
 tslint.json
+typings.json
 .vscode/
 coverage/
 server-root/
@@ -17,3 +18,4 @@ tests/
 buildtasks/
 build/
 docs/
+typedoctheme/

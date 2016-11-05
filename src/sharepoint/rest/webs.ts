@@ -16,7 +16,7 @@ import * as Types from "./types";
 import { List } from "./lists";
 import { SiteUsers, SiteUser } from "./siteusers";
 import { UserCustomActions } from "./usercustomactions";
-import { extractOdataId } from "./odata";
+import { extractOdataId, ODataBatch } from "./odata";
 
 
 export class Webs extends QueryableCollection {
@@ -166,6 +166,14 @@ export class Web extends QueryableSecurable {
     }
 
     /**
+     * Creates a new batch for requests within the context of context this web
+     * 
+     */
+    public createBatch(): ODataBatch {
+        return new ODataBatch(this.parentUrl);
+    }
+
+    /**
      * Get a folder by server relative url
      *
      * @param folderRelativeUrl the server relative path to the folder (including /sites/ if applicable)
@@ -181,6 +189,15 @@ export class Web extends QueryableSecurable {
      */
     public getFileByServerRelativeUrl(fileRelativeUrl: string): File {
         return new File(this, `getFileByServerRelativeUrl('${fileRelativeUrl}')`);
+    }
+
+    /**
+     * Get a list by server relative url (list's root folder)
+     *
+     * @param listRelativeUrl the server relative path to the list's root folder (including /sites/ if applicable)
+     */
+    public getList(listRelativeUrl: string): List {
+        return new List(this, `getList('${listRelativeUrl}')`);
     }
 
     /**

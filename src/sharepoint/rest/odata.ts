@@ -2,7 +2,7 @@
 
 import { QueryableConstructor } from "./queryable";
 import { Util } from "../../utils/util";
-import { Logger } from "../../utils/logging";
+import { Logger, LogLevel } from "../../utils/logging";
 import { HttpClient } from "../../net/httpclient";
 import { RuntimeConfig } from "../../configuration/pnplibconfig";
 import { TypedHash } from "../../collections/collections";
@@ -16,7 +16,7 @@ export function extractOdataId(candidate: any): string {
     } else {
         Logger.log({
             data: candidate,
-            level: Logger.LogLevel.Error,
+            level: LogLevel.Error,
             message: "Could not extract odata id in object, you may be using nometadata. Object data logged to logger.",
         });
         throw new Error("Could not extract odata id in object, you may be using nometadata. Object data logged to logger.");
@@ -30,19 +30,21 @@ export interface ODataParser<T, U> {
 export abstract class ODataParserBase<T, U> implements ODataParser<T, U> {
 
     public parse(r: Response): Promise<U> {
-        return r.json().then(json => {
-            let result = json;
-            if (json.hasOwnProperty("d")) {
-                if (json.d.hasOwnProperty("results")) {
-                    result = json.d.results;
-                } else {
-                    result = json.d;
-                }
-            } else if (json.hasOwnProperty("value")) {
-                result = json.value;
+        return r.json().then(json => this.parseODataJSON(json));
+    }
+
+    protected parseODataJSON<U>(json: any): U {
+        let result = json;
+        if (json.hasOwnProperty("d")) {
+            if (json.d.hasOwnProperty("results")) {
+                result = json.d.results;
+            } else {
+                result = json.d;
             }
-            return result;
-        });
+        } else if (json.hasOwnProperty("value")) {
+            result = json.value;
+        }
+        return result;
     }
 }
 
@@ -102,7 +104,7 @@ function getEntityUrl(entity: any): string {
     } else {
         // we are likely dealing with nometadata, so don't error but we won't be able to
         // chain off these objects (write something to log?)
-        Logger.write("No uri information found in ODataEntity parsing, chaining will fail for this object.", Logger.LogLevel.Warning);
+        Logger.write("No uri information found in ODataEntity parsing, chaining will fail for this object.", LogLevel.Warning);
         return "";
     }
 }
@@ -126,13 +128,13 @@ export function ODataEntityArray<T>(factory: QueryableConstructor<T>): ODataPars
  */
 export class ODataBatch {
 
-    constructor(private _batchId = Util.getGUID()) {
-        this._requests = [];
-        this._batchDepCount = 0;
-    }
-
-    private _batchDepCount: number;
+    private _batchDependencies: Promise<void>;
     private _requests: ODataBatchRequestInfo[];
+
+    constructor(private baseUrl: string, private _batchId = Util.getGUID()) {
+        this._requests = [];
+        this._batchDependencies = Promise.resolve();
+    }
 
     /**
      * Adds a request to a batch (not designed for public use)
@@ -163,31 +165,33 @@ export class ODataBatch {
         return p;
     }
 
-    public incrementBatchDep() {
-        this._batchDepCount++;
-    }
+    public addBatchDependency(): () => void {
 
-    public decrementBatchDep() {
-        this._batchDepCount--;
+        let resolver: () => void;
+        let promise = new Promise<void>((resolve) => {
+            resolver = resolve;
+        });
+
+        this._batchDependencies = this._batchDependencies.then(() => promise);
+
+        return resolver;
     }
 
     /**
      * Execute the current batch and resolve the associated promises
+     * 
+     * @returns A promise which will be resolved once all of the batch's child promises have resolved
      */
-    public execute(): void {
-        if (this._batchDepCount > 0) {
-            setTimeout(() => this.execute(), 100);
-        } else {
-            this.executeImpl();
-        }
+    public execute(): Promise<void> {
+        return this._batchDependencies.then(() => this.executeImpl());
     }
 
-    private executeImpl(): void {
+    private executeImpl(): Promise<void> {
 
         // if we don't have any requests, don't bother sending anything
         // this could be due to caching further upstream, or just an empty batch 
         if (this._requests.length < 1) {
-            return;
+            return Promise.resolve();
         }
 
         // build all the requests, send them, pipe results in order to parsers
@@ -283,7 +287,8 @@ export class ODataBatch {
         };
 
         let client = new HttpClient();
-        client.post(Util.makeUrlAbsolute("/_api/$batch"), batchOptions)
+        let requestUrl = Util.makeUrlAbsolute(Util.combinePaths(this.baseUrl, "/_api/$batch"));
+        return client.post(requestUrl, batchOptions)
             .then(r => r.text())
             .then(this._parseResponse)
             .then(responses => {
@@ -291,6 +296,8 @@ export class ODataBatch {
                     // this is unfortunate
                     throw new Error("Could not properly parse responses to match requests in batch.");
                 }
+
+                let chain = Promise.resolve();
 
                 for (let i = 0; i < responses.length; i++) {
                     let request = this._requests[i];
@@ -300,8 +307,10 @@ export class ODataBatch {
                         request.reject(new Error(response.statusText));
                     }
 
-                    request.parser.parse(response).then(request.resolve).catch(request.reject);
+                    chain = chain.then(_ => request.parser.parse(response).then(request.resolve).catch(request.reject));
                 }
+
+                return chain;
             });
     }
 

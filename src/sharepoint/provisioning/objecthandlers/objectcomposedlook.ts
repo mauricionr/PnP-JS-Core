@@ -1,8 +1,8 @@
 "use strict";
 
-import { IComposedLook } from "../schema/icomposedlook";
+import { IComposedLook } from "../schema/IComposedLook";
 import { Util } from "../util";
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
+import { ObjectHandlerBase } from "./objecthandlerbase";
 
 /**
  * Describes the Composed Look Object Handler

@@ -1,6 +1,6 @@
 "use strict";
 
-import { IContents } from "./icontents";
+import { IContents } from "./IContents";
 
 export interface IWebPart {
     Title: string;

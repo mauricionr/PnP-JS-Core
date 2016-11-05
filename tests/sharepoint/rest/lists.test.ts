@@ -5,6 +5,7 @@ import { Lists, List } from "../../../src/sharepoint/rest/lists";
 import { ControlMode, PageType } from "../../../src/sharepoint/rest/types";
 import { testSettings } from "../../test-config.test";
 import pnp from "../../../src/pnp";
+import { toMatchEndRegex } from "../../testutils";
 
 describe("Lists", () => {
 
@@ -20,28 +21,28 @@ describe("Lists", () => {
 
     describe("url", () => {
         it("Should return _api/web/lists", () => {
-            expect(lists.toUrl()).to.equal("_api/web/lists");
+            expect(lists.toUrl()).to.match(toMatchEndRegex("_api/web/lists"));
         });
     });
 
     describe("getByTitle", () => {
         it("Should return _api/web/lists/getByTitle('Tasks')", () => {
             let list = lists.getByTitle("Tasks");
-            expect(list.toUrl()).to.equal("_api/web/lists/getByTitle('Tasks')");
+            expect(list.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')"));
         });
     });
 
     describe("getById", () => {
         it("Should return _api/web/lists('4FC65058-FDDE-4FAD-AB21-2E881E1CF527')", () => {
             let list = lists.getById("4FC65058-FDDE-4FAD-AB21-2E881E1CF527");
-            expect(list.toUrl()).to.equal("_api/web/lists('4FC65058-FDDE-4FAD-AB21-2E881E1CF527')");
+            expect(list.toUrl()).to.match(toMatchEndRegex("_api/web/lists('4FC65058-FDDE-4FAD-AB21-2E881E1CF527')"));
         });
     });
 
     describe("getById with {}", () => {
         it("Should return _api/web/lists('{4FC65058-FDDE-4FAD-AB21-2E881E1CF527}')", () => {
             let list = lists.getById("{4FC65058-FDDE-4FAD-AB21-2E881E1CF527}");
-            expect(list.toUrl()).to.equal("_api/web/lists('{4FC65058-FDDE-4FAD-AB21-2E881E1CF527}')");
+            expect(list.toUrl()).to.match(toMatchEndRegex("_api/web/lists('{4FC65058-FDDE-4FAD-AB21-2E881E1CF527}')"));
         });
     });
 
@@ -110,70 +111,71 @@ describe("List", () => {
 
     describe("contentTypes", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/contenttypes", () => {
-            expect(list.contentTypes.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/contenttypes");
+            expect(list.contentTypes.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/contenttypes"));
         });
     });
 
     describe("items", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/items", () => {
-            expect(list.items.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/items");
+            expect(list.items.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/items"));
         });
     });
 
     describe("views", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/views", () => {
-            expect(list.views.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/views");
+            expect(list.views.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/views"));
         });
     });
 
     describe("fields", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/fields", () => {
-            expect(list.fields.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/fields");
+            expect(list.fields.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/fields"));
         });
     });
 
     describe("defaultView", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/DefaultView", () => {
-            expect(list.defaultView.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/DefaultView");
+            expect(list.defaultView.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/DefaultView"));
         });
     });
 
     describe("effectiveBasePermissions", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/EffectiveBasePermissions", () => {
-            expect(list.effectiveBasePermissions.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/EffectiveBasePermissions");
+            expect(list.effectiveBasePermissions.toUrl())
+                .to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/EffectiveBasePermissions"));
         });
     });
 
     describe("eventReceivers", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/EventReceivers", () => {
-            expect(list.eventReceivers.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/EventReceivers");
+            expect(list.eventReceivers.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/EventReceivers"));
         });
     });
 
     describe("relatedFields", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/getRelatedFields", () => {
-            expect(list.relatedFields.toUrl()).to.eq("_api/web/lists/getByTitle('Tasks')/getRelatedFields");
+            expect(list.relatedFields.toUrl()).to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/getRelatedFields"));
         });
     });
 
     describe("informationRightsManagementSettings", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/InformationRightsManagementSettings", () => {
             expect(list.informationRightsManagementSettings.toUrl())
-                .to.eq("_api/web/lists/getByTitle('Tasks')/InformationRightsManagementSettings");
+                .to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/InformationRightsManagementSettings"));
         });
     });
 
     describe("userCustomActions", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/usercustomactions", () => {
             expect(list.userCustomActions.toUrl())
-                .to.eq("_api/web/lists/getByTitle('Tasks')/usercustomactions");
+                .to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/usercustomactions"));
         });
     });
 
     describe("getView", () => {
         it("should return _api/web/lists/getByTitle('Tasks')/getView('b81b1b32-ed0a-4b80-bd16-67c99a4f3c1c')", () => {
             expect(list.getView("b81b1b32-ed0a-4b80-bd16-67c99a4f3c1c").toUrl())
-                .to.eq("_api/web/lists/getByTitle('Tasks')/getView('b81b1b32-ed0a-4b80-bd16-67c99a4f3c1c')");
+                .to.match(toMatchEndRegex("_api/web/lists/getByTitle('Tasks')/getView('b81b1b32-ed0a-4b80-bd16-67c99a4f3c1c')"));
         });
     });
 
@@ -236,7 +238,7 @@ describe("List", () => {
         describe("informationRightsManagementSettings", () => {
             it("should return the information rights management settings from the list", () => {
                 return expect(pnp.sp.web.lists.getByTitle("Documents").informationRightsManagementSettings.get())
-                .to.eventually.be.fulfilled;
+                    .to.eventually.be.fulfilled;
             });
         });
 

@@ -13,13 +13,13 @@ export interface ICachingOptions {
 
 export class CachingOptions implements ICachingOptions {
 
-    constructor(public key: string) { }
-
     protected static storage = new PnPClientStorage();
 
     public expiration = Util.dateAdd(new Date(), "second", RuntimeConfig.defaultCachingTimeoutSeconds);
 
     public storeName: "session" | "local" = RuntimeConfig.defaultCachingStore;
+
+    constructor(public key: string) { }
 
     public get store(): PnPClientStore {
         if (this.storeName === "local") {

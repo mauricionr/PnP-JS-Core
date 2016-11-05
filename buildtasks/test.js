@@ -14,7 +14,8 @@
 var gulp = require("gulp"),
     mocha = require("gulp-mocha"),
     istanbul = require("gulp-istanbul"),
-    tsc = require("gulp-typescript");
+    tsc = require("gulp-typescript"),
+    yargs = require('yargs').argv;
 
 //******************************************************************************
 //* TEST
@@ -22,15 +23,15 @@ var gulp = require("gulp"),
 
 gulp.task("build-tests", ["clean"], function() {
     var src = global.TSWorkspace.Tests.slice(0);
-    src.push(global.TSTypings.Main);
 
     return gulp.src(src)
-        .pipe(tsc(global.tsProject))
+        .pipe(global.tsProject())
         .pipe(gulp.dest(global.TSCompiledOutput.TestRootFolder));
 });
 
 gulp.task("test", ["build", "build-tests", "istanbul:hook"], function() {
-    return gulp.src(global.TSCompiledOutput.JSTestFiles)
+    let path = './build/tests/{path}.test.js';
+    return gulp.src(yargs.single ? path.replace('{path}', yargs.single) : global.TSCompiledOutput.JSTestFiles)
         .pipe(mocha({ ui: 'bdd', reporter: 'dot', timeout: 10000 }))
         .pipe(istanbul.writeReports());
 });

@@ -5,7 +5,7 @@ import { testSettings } from "../../test-config.test";
 import { expect } from "chai";
 import { Web } from "../../../src/sharepoint/rest/webs";
 import { Util } from "../../../src/utils/util";
-
+import { toMatchEndRegex } from "../../testutils";
 
 describe("Webs", () => {
 
@@ -35,76 +35,83 @@ describe("Web", () => {
 
     describe("url", () => {
         it("Should return _api/web", () => {
-            expect(web.toUrl()).to.equal("_api/web");
+            expect(web.toUrl()).to.match(toMatchEndRegex("_api/web"));
         });
     });
 
     describe("webs", () => {
         it("should return _api/web/webs", () => {
-            expect(web.webs.toUrl()).to.eq("_api/web/webs");
+            expect(web.webs.toUrl()).to.match(toMatchEndRegex("_api/web/webs"));
         });
     });
 
     describe("contentTypes", () => {
         it("should return _api/web/contenttypes", () => {
-            expect(web.contentTypes.toUrl()).to.eq("_api/web/contenttypes");
+            expect(web.contentTypes.toUrl()).to.match(toMatchEndRegex("_api/web/contenttypes"));
         });
     });
 
     describe("lists", () => {
-        it("should return _api/web/lists", function () {
-            expect(web.lists.toUrl()).to.eq("_api/web/lists");
+        it("should return _api/web/lists", () => {
+            expect(web.lists.toUrl()).to.match(toMatchEndRegex("_api/web/lists"));
         });
     });
 
     describe("navigation", () => {
         it("should return _api/web/navigation", () => {
-            expect(web.navigation.toUrl()).to.eq("_api/web/navigation");
+            expect(web.navigation.toUrl()).to.match(toMatchEndRegex("_api/web/navigation"));
         });
     });
 
     describe("siteUsers", () => {
         it("should return _api/web/siteUsers", () => {
-            expect(web.siteUsers.toUrl()).to.eq("_api/web/siteusers");
+            expect(web.siteUsers.toUrl()).to.match(toMatchEndRegex("_api/web/siteusers"));
         });
     });
 
     describe("folders", () => {
         it("should return _api/web/folders", () => {
-            expect(web.folders.toUrl()).to.eq("_api/web/folders");
+            expect(web.folders.toUrl()).to.match(toMatchEndRegex("_api/web/folders"));
         });
     });
 
     describe("getFolderByServerRelativeUrl", () => {
         it("should return _api/web/getFolderByServerRelativeUrl('/sites/dev/shared documents/folder')", () => {
             expect(web.getFolderByServerRelativeUrl("/sites/dev/shared documents/folder").toUrl())
-                .to.eq("_api/web/getFolderByServerRelativeUrl('/sites/dev/shared documents/folder')");
+                .to.match(toMatchEndRegex("_api/web/getFolderByServerRelativeUrl('/sites/dev/shared documents/folder')"));
         });
     });
 
     describe("getFileByServerRelativeUrl", () => {
         it("should return _api/web/getFileByServerRelativeUrl('/sites/dev/shared documents/folder/doc.docx')", () => {
             expect(web.getFileByServerRelativeUrl("/sites/dev/shared documents/folder/doc.docx").toUrl())
-                .to.eq("_api/web/getFileByServerRelativeUrl('/sites/dev/shared documents/folder/doc.docx')");
+                .to.match(toMatchEndRegex("_api/web/getFileByServerRelativeUrl('/sites/dev/shared documents/folder/doc.docx')"));
+        });
+    });
+
+    describe("getList", () => {
+        it("should return _api/web/getList('/sites/dev/lists/customlist')", () => {
+            expect(web.getList("/sites/dev/lists/customlist").toUrl())
+                .to.match(toMatchEndRegex("_api/web/getList('/sites/dev/lists/customlist')"));
         });
     });
 
     describe("availableWebTemplates", () => {
         it("should return _api/web/getavailablewebtemplates(lcid=1033, doincludecrosslanguage=true)", () => {
             expect(web.availableWebTemplates(1033, true).toUrl())
-                .to.eq("_api/web/getavailablewebtemplates(lcid=1033, doincludecrosslanguage=true)");
+                .to.match(toMatchEndRegex("_api/web/getavailablewebtemplates(lcid=1033, doincludecrosslanguage=true)"));
         });
     });
 
     describe("customListTemplate", () => {
         it("should return _api/web/getcustomlisttemplates", () => {
-            expect(web.customListTemplate.toUrl()).to.eq("_api/web/getcustomlisttemplates");
+            expect(web.customListTemplate.toUrl()).to.match(toMatchEndRegex("_api/web/getcustomlisttemplates"));
         });
     });
 
     describe("getUserById", () => {
         it("should return _api/web/getUserById(4)", () => {
-            expect(web.getUserById(4).toUrl()).to.eq("_api/web/getUserById(4)");
+            expect(web.getUserById(4).toUrl()).to.match(toMatchEndRegex("_api/web/getUserById(4)"));
         });
     });
 
@@ -202,7 +209,7 @@ describe("Web", () => {
 
         describe("delete", () => {
             it("should create and then delete a new sub-web", function () {
-                this.timeout(30000);
+                this.timeout(40000);
                 return expect(pnp.sp.web.webs.add("Better be deleted!", "web-delete-test").then(result => {
                     return result.web.delete();
                 })).to.eventually.be.fulfilled;

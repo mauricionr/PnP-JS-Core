@@ -9,7 +9,7 @@ import { NodeFetchClient } from "./nodefetchclient";
 
 export interface FetchOptions {
     method?: string;
-    headers?: HeaderInit | { [index: string]: string };
+    headers?: HeadersInit | { [index: string]: string };
     body?: BodyInit;
     mode?: string | RequestMode;
     credentials?: string | RequestCredentials;
@@ -18,13 +18,13 @@ export interface FetchOptions {
 
 export class HttpClient {
 
+    private _digestCache: DigestCache;
+    private _impl: HttpClientImpl;
+
     constructor() {
         this._impl = this.getFetchImpl();
         this._digestCache = new DigestCache(this);
     }
-
-    private _digestCache: DigestCache;
-    private _impl: HttpClientImpl;
 
     public fetch(url: string, options: FetchOptions = {}): Promise<Response> {
 
@@ -50,7 +50,7 @@ export class HttpClient {
         }
 
         if (!headers.has("X-ClientService-ClientTag")) {
-            headers.append("X-ClientService-ClientTag", "PnPCoreJS");
+            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.5");
         }
 
         opts = Util.extend(opts, { headers: headers });
@@ -128,6 +128,16 @@ export class HttpClient {
 
     public post(url: string, options: FetchOptions = {}): Promise<Response> {
         let opts = Util.extend(options, { method: "POST" });
+        return this.fetch(url, opts);
+    }
+
+    public patch(url: string, options: FetchOptions = {}): Promise<Response> {
+        let opts = Util.extend(options, { method: "PATCH" });
+        return this.fetch(url, opts);
+    }
+
+    public delete(url: string, options: FetchOptions = {}): Promise<Response> {
+        let opts = Util.extend(options, { method: "DELETE" });
         return this.fetch(url, opts);
     }
 

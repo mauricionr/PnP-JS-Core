@@ -7,13 +7,13 @@ import { ODataValue } from "./odata";
 
 export class UserProfileQuery extends QueryableInstance {
 
+    private profileLoader: ProfileLoader;
+
     constructor(baseUrl: string | Queryable, path = "_api/sp.userprofiles.peoplemanager") {
         super(baseUrl, path);
 
         this.profileLoader = new ProfileLoader(baseUrl);
     }
-
-    private profileLoader: ProfileLoader;
 
     /**
      * The URL of the edit profile page for the current user.

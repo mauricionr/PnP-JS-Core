@@ -2,6 +2,7 @@
 
 import { expect } from "chai";
 import { Navigation } from "../../../src/sharepoint/rest/navigation";
+import { toMatchEndRegex } from "../../testutils";
 
 describe("Navigation", () => {
     it("Should be an object", () => {
@@ -11,7 +12,7 @@ describe("Navigation", () => {
     describe("url", () => {
         it("Should return _api/web/Navigation", () => {
             let navigation = new Navigation("_api/web");
-            expect(navigation.toUrl()).to.equal("_api/web/navigation");
+            expect(navigation.toUrl()).to.match(toMatchEndRegex("_api/web/navigation"));
         });
     });
 });

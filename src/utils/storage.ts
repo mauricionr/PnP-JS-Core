@@ -37,7 +37,7 @@ export class PnPClientStorageWrapper implements PnPClientStore {
         let o = this.store.getItem(key);
 
         if (o == null) {
-            return o;
+            return null;
         }
 
         let persistable = JSON.parse(o);
@@ -99,7 +99,7 @@ export class PnPClientStorageWrapper implements PnPClientStore {
 
             if (o == null) {
                 getter().then((d) => {
-                    this.put(key, d);
+                    this.put(key, d, expire);
                     resolve(d);
                 });
             } else {
@@ -182,16 +182,6 @@ export interface PnPClientStore {
 export class PnPClientStorage {
 
     /**
-     * Creates a new instance of the PnPClientStorage class
-     *
-     * @constructor
-     */
-    constructor() {
-        this.local = typeof localStorage !== "undefined" ? new PnPClientStorageWrapper(localStorage) : null;
-        this.session = typeof sessionStorage !== "undefined" ? new PnPClientStorageWrapper(sessionStorage) : null;
-    }
-
-    /**
      * Provides access to the local storage of the browser
      */
     public local: PnPClientStore;
@@ -200,4 +190,14 @@ export class PnPClientStorage {
      * Provides access to the session storage of the browser
      */
     public session: PnPClientStore;
+
+    /**
+     * Creates a new instance of the PnPClientStorage class
+     *
+     * @constructor
+     */
+    constructor() {
+        this.local = typeof localStorage !== "undefined" ? new PnPClientStorageWrapper(localStorage) : null;
+        this.session = typeof sessionStorage !== "undefined" ? new PnPClientStorageWrapper(sessionStorage) : null;
+    }
 }

@@ -19,24 +19,22 @@ var gulp = require("gulp"),
 //******************************************************************************
 //* BUILD
 //******************************************************************************
-gulp.task("build", ["clean", "lint", "build-typings"], function () {
+gulp.task("build", ["clean", "lint"], function () {
     var src = global.TSWorkspace.Files.slice(0);
-    src.push(global.TSTypings.Main);
 
     return gulp.src(src)
         .pipe(plumber())
-        .pipe(tsc(global.tsProject))
+        .pipe(global.tsProject())
         .pipe(debug({ title: "build output:" }))
         .pipe(gulp.dest(global.TSCompiledOutput.RootFolder));
 });
 
 gulp.task("build-serve", function () {
     var src = global.TSWorkspace.Files.slice(0);
-    src.push(global.TSTypings.Main);
 
     return gulp.src(src)
         .pipe(plumber())
-        .pipe(tsc(global.tsProject))
+        .pipe(global.tsProject())
         .pipe(gulp.dest(global.TSCompiledOutput.RootFolder));
 });
 

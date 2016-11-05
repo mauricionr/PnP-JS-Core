@@ -1,6 +1,7 @@
 "use strict";
 
 import { HttpClientImpl } from "./httpClient";
+import { Util } from "../utils/util";
 
 /**
  * Makes requests using the SP.RequestExecutor library.
@@ -47,9 +48,9 @@ export class SPRequestExecutorClient implements HttpClientImpl {
             };
 
             if (options.body) {
-                requestOptions["body"] = options.body;
+                Util.extend(requestOptions, { body: options.body });
             } else {
-                requestOptions["binaryStringRequestBody"] = true;
+                Util.extend(requestOptions, { binaryStringRequestBody: true });
             }
             executor.executeAsync(requestOptions);
         });

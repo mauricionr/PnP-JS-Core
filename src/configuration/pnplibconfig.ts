@@ -45,6 +45,14 @@ export interface LibraryConfiguration {
 
 export class RuntimeConfigImpl {
 
+    private _headers: TypedHash<string>;
+    private _defaultCachingStore: "session" | "local";
+    private _defaultCachingTimeoutSeconds: number;
+    private _globalCacheDisable: boolean;
+    private _useSPRequestExecutor: boolean;
+    private _useNodeClient: boolean;
+    private _nodeClientData: NodeClientData;
+
     constructor() {
         // these are our default values for the library
         this._headers = null;
@@ -53,14 +61,6 @@ export class RuntimeConfigImpl {
         this._globalCacheDisable = false;
         this._useSPRequestExecutor = false;
     }
-
-    private _headers: TypedHash<string>;
-    private _defaultCachingStore: "session" | "local";
-    private _defaultCachingTimeoutSeconds: number;
-    private _globalCacheDisable: boolean;
-    private _useSPRequestExecutor: boolean;
-    private _useNodeClient: boolean;
-    private _nodeClientData: NodeClientData;
 
     public set(config: LibraryConfiguration): void {
 

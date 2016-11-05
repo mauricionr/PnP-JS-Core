@@ -5,6 +5,7 @@ import { Views, View } from "./views";
 import { ContentTypes } from "./contenttypes";
 import { Fields } from "./fields";
 import { Forms } from "./forms";
+import { Subscriptions } from "./subscriptions";
 import { Queryable, QueryableInstance, QueryableCollection } from "./queryable";
 import { QueryableSecurable } from "./queryablesecurable";
 import { Util } from "../../utils/util";
@@ -70,10 +71,7 @@ export class Lists extends QueryableCollection {
         }, additionalSettings));
 
         return this.post({ body: postBody }).then((data) => {
-            return {
-                list: this.getByTitle(title),
-                data: data
-            };
+            return { data: data, list: this.getByTitle(title) };
         });
     }
     /*tslint:enable */
@@ -99,10 +97,10 @@ export class Lists extends QueryableCollection {
 
             let list: List = this.getByTitle(title);
 
-            list.get().then((d) => resolve({ created: false, list: list, data: d })).catch(() => {
+            list.get().then((d) => resolve({ created: false, data: d, list: list })).catch(() => {
 
                 this.add(title, description, template, enableContentTypes, additionalSettings).then((r) => {
-                    resolve({ created: true, list: this.getByTitle(title), data: r.data });
+                    resolve({ created: true, data: r.data, list: this.getByTitle(title) });
                 });
 
             }).catch((e) => reject(e));
@@ -241,6 +239,14 @@ export class List extends QueryableSecurable {
     }
 
     /**
+     * Gets the webhook subscriptions of this list
+     *
+     */
+    public get subscriptions(): Subscriptions {
+        return new Subscriptions(this);
+    }
+
+    /**
      * Gets a view by view guid id
      *
      */
@@ -254,7 +260,7 @@ export class List extends QueryableSecurable {
      * @param properties A plain object hash of values to update for the list
      * @param eTag Value used in the IF-Match header, by default "*"
      */
-    /* tslint:disable member-access */
+    /* tslint:disable no-string-literal */
     public update(properties: TypedHash<string | number | boolean>, eTag = "*"): Promise<ListUpdateResult> {
 
         let postBody = JSON.stringify(Util.extend({

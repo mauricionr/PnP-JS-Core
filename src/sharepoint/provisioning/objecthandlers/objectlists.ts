@@ -1,9 +1,9 @@
 "use strict";
 
-import { Sequencer } from "../Sequencer/Sequencer";
-import { ObjectHandlerBase } from "./ObjectHandlerBase";
-import { IListInstance } from "../schema/ilistinstance";
-import { IField } from "../schema/ifield";
+import { Sequencer } from "../sequencer/sequencer";
+import { ObjectHandlerBase } from "./objecthandlerbase";
+import { IListInstance } from "../schema/IListInstance";
+import { IField } from "../schema/IField";
 
 /**
  * Describes the Lists Object Handler
@@ -279,6 +279,7 @@ export class ObjectLists extends ObjectHandlerBase {
             let properties = [];
             Object.keys(field).forEach(prop => {
                 let value = field[prop];
+                properties.push(`${prop}="${value}"`);
                 if (prop === "List") {
                     let targetList = lists.filter(v => {
                         return v.get_title() === value;
@@ -288,7 +289,6 @@ export class ObjectLists extends ObjectHandlerBase {
                     } else {
                         return null;
                     }
-                    properties.push(`${prop}="${value}"`);
                 }
             });
             fieldXml = `<Field ${properties.join(" ")}>`;

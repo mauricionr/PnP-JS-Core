@@ -2,6 +2,17 @@
 
 import { Queryable, QueryableCollection, QueryableInstance } from "./queryable";
 import { Item } from "./items";
+import { ODataParser } from "./odata";
+import { Util } from "../../utils/util";
+
+export interface ChunkedFileUploadProgressData {
+    stage: "starting" | "continue" | "finishing";
+    blockNumber: number;
+    totalBlocks: number;
+    chunkSize: number;
+    currentPointer: number;
+    fileSize: number;
+}
 
 /**
  * Describes a collection of File objects
@@ -33,18 +44,45 @@ export class Files extends QueryableCollection {
      * Uploads a file.
      * 
      * @param url The folder-relative url of the file.
-     * @param shouldOverWrite Should a file with the same name in the same location be overwritten?
      * @param content The file contents blob.
+     * @param shouldOverWrite Should a file with the same name in the same location be overwritten? (default: true)
      * @returns The new File and the raw response. 
      */
     public add(url: string, content: Blob, shouldOverWrite = true): Promise<FileAddResult> {
         return new Files(this, `add(overwrite=${shouldOverWrite},url='${url}')`)
-            .post({ body: content }).then((response) => {
+            .post({
+                body: content,
+            }).then((response) => {
                 return {
                     data: response,
                     file: this.getByName(url),
                 };
             });
+    }
+
+    /**
+     * Uploads a file.
+     * 
+     * @param url The folder-relative url of the file.
+     * @param content The Blob file content to add
+     * @param progress A callback function which can be used to track the progress of the upload
+     * @param shouldOverWrite Should a file with the same name in the same location be overwritten? (default: true)
+     * @param chunkSize The size of each file slice, in bytes (default: 10485760)
+     * @returns The new File and the raw response. 
+     */
+    public addChunked(
+        url: string,
+        content: Blob,
+        progress?: (data: ChunkedFileUploadProgressData) => void,
+        shouldOverWrite = true,
+        chunkSize = 10485760): Promise<FileAddResult> {
+        let adder = new Files(this, `add(overwrite=${shouldOverWrite},url='${url}')`);
+        return adder.post().then(() => this.getByName(url)).then(file => file.setContentChunked(content, progress, chunkSize)).then((response) => {
+            return {
+                data: response,
+                file: this.getByName(url),
+            };
+        });
     }
 
     /**
@@ -83,86 +121,6 @@ export class File extends QueryableInstance {
     }
 
     /**
-     * Gets a value that specifies the user who added the file.
-     * 
-     */
-    public get author(): Queryable {
-        return new Queryable(this, "author");
-    }
-
-    /**
-     * Gets a result indicating the current user who has the file checked out.
-     * 
-     */
-    public get checkedOutByUser(): Queryable {
-        return new Queryable(this, "checkedOutByUser");
-    }
-
-    /**
-     * Gets a value that returns the comment used when a document is checked in to a document library.
-     * 
-     */
-    public get checkInComment(): Queryable {
-        return new Queryable(this, "checkInComment");
-    }
-
-    /**
-     * Gets a value that indicates how the file is checked out of a document library.
-     * The checkout state of a file is independent of its locked state.
-     * 
-     */
-    public get checkOutType(): Queryable {
-        return new Queryable(this, "checkOutType");
-    }
-
-    /**
-     * Returns internal version of content, used to validate document equality for read purposes.
-     * 
-     */
-    public get contentTag(): Queryable {
-        return new Queryable(this, "contentTag");
-    }
-
-    /**
-     * Gets a value that specifies the customization status of the file.
-     * 
-     */
-    public get customizedPageStatus(): Queryable {
-        return new Queryable(this, "customizedPageStatus");
-    }
-
-    /**
-     * Gets the current eTag of a file
-     * 
-     */
-    public get eTag(): Queryable {
-        return new Queryable(this, "eTag");
-    }
-
-    /**
-     * Gets a value that specifies whether the file exists.
-     * 
-     */
-    public get exists(): Queryable {
-        return new Queryable(this, "exists");
-    }
-
-    /**
-     * Gets the size of the file in bytes, excluding the size of any Web Parts that are used in the file.
-     */
-    public get length(): Queryable {
-        return new Queryable(this, "length");
-    }
-
-    /**
-     * Gets a value that specifies the publishing level of the file.
-     * 
-     */
-    public get level(): Queryable {
-        return new Queryable(this, "level");
-    }
-
-    /**
      * Gets a value that specifies the list item field values for the list item corresponding to the file.
      * 
      */
@@ -171,107 +129,11 @@ export class File extends QueryableInstance {
     }
 
     /**
-     * Gets a value that returns the user that owns the current lock on the file.
-     * 
-     */
-    public get lockedByUser(): Queryable {
-        return new Queryable(this, "lockedByUser");
-    }
-
-    /**
-     * Gets a value that specifies the major version of the file.
-     * 
-     */
-    public get majorVersion(): Queryable {
-        return new Queryable(this, "majorVersion");
-    }
-
-    /**
-     * Gets a value that specifies the minor version of the file.
-     * 
-     */
-    public get minorVersion(): Queryable {
-        return new Queryable(this, "minorVersion");
-    }
-
-    /**
-     * Gets a value that returns the user who last modified the file.
-     * 
-     */
-    public get modifiedBy(): Queryable {
-        return new Queryable(this, "modifiedBy");
-    }
-
-    /**
-     * Gets the name of the file including the extension.
-     * 
-     */
-    public get name(): Queryable {
-        return new Queryable(this, "name");
-    }
-
-    /**
-     * Gets the server relative url of a file
-     * 
-     */
-    public get serverRelativeUrl(): Queryable {
-        return new Queryable(this, "serverRelativeUrl");
-    }
-
-    /**
-     * Gets a value that specifies when the file was created.
-     * 
-     */
-    public get timeCreated(): Queryable {
-        return new Queryable(this, "timeCreated");
-    }
-
-    /**
-     * Gets a value that specifies when the file was last modified.
-     * 
-     */
-    public get timeLastModified(): Queryable {
-        return new Queryable(this, "timeLastModified");
-    }
-
-    /**
-     * Gets a value that specifies the display name of the file.
-     * 
-     */
-    public get title(): Queryable {
-        return new Queryable(this, "title");
-    }
-
-    /**
-     * Gets a value that specifies the implementation-specific version identifier of the file.
-     * 
-     */
-    public get uiVersion(): Queryable {
-        return new Queryable(this, "uiVersion");
-    }
-
-    /**
-     * Gets a value that specifies the implementation-specific version identifier of the file.
-     * 
-     */
-    public get uiVersionLabel(): Queryable {
-        return new Queryable(this, "uiVersionLabel");
-    }
-
-    /**
      * Gets a collection of versions
      * 
      */
     public get versions(): Versions {
         return new Versions(this);
-    }
-
-    /**
-     * Gets the contents of the file - If the file is not JSON a custom parser function should be used with the get call
-     * 
-     */
-    public get value(): Queryable {
-        return new Queryable(this, "$value");
     }
 
     /**
@@ -316,21 +178,6 @@ export class File extends QueryableInstance {
     }
 
     /**
-     * Continues the chunk upload session with an additional fragment.
-     * The current file content is not changed.
-     * Use the uploadId value that was passed to the StartUpload method that started the upload session.
-     * This method is currently available only on Office 365.
-     * 
-     * @param uploadId The unique identifier of the upload session.
-     * @param fileOffset The size of the offset into the file where the fragment starts.
-     * @param fragment The file contents.
-     * @returns The size of the total uploaded data in bytes. 
-     */
-    public continueUpload(uploadId: string, fileOffset: number, b: Blob): Promise<number> {
-        return new File(this, `continueUpload(uploadId=guid'${uploadId}',fileOffset=${fileOffset})`).postAs<any, number>({ body: b });
-    }
-
-    /**
      * Copies the file to the destination url.
      * 
      * @param url The absolute url or server relative url of the destination file path to copy to.
@@ -365,26 +212,6 @@ export class File extends QueryableInstance {
     }
 
     /**
-     * Uploads the last file fragment and commits the file. The current file content is changed when this method completes.
-     * Use the uploadId value that was passed to the StartUpload method that started the upload session.
-     * This method is currently available only on Office 365.
-     * 
-     * @param uploadId The unique identifier of the upload session.
-     * @param fileOffset The size of the offset into the file where the fragment starts.
-     * @param fragment The file contents.
-     * @returns The newly uploaded file. 
-     */
-    public finishUpload(uploadId: string, fileOffset: number, fragment: Blob): Promise<FileAddResult> {
-        return new File(this, `finishUpload(uploadId=guid'${uploadId}',fileOffset=${fileOffset})`)
-            .postAs<any, { ServerRelativeUrl: string }>({ body: fragment }).then((response) => {
-                return {
-                    data: response,
-                    file: new File(response.ServerRelativeUrl),
-                };
-            });
-    }
-
-    /**
      * Specifies the control set used to access, modify, or add Web Parts associated with this Web Part Page and view.
      * An exception is thrown if the file is not an ASPX page.
      * 
@@ -402,14 +229,6 @@ export class File extends QueryableInstance {
      */
     public moveTo(url: string, moveOperations = MoveOperations.Overwrite): Promise<void> {
         return new File(this, `moveTo(newurl='${url}',flags=${moveOperations})`).post();
-    }
-
-    /**
-     * Opens the file as a stream.
-     * 
-     */
-    public openBinaryStream(): Queryable {
-        return new Queryable(this, "openBinaryStream");
     }
 
     /**
@@ -431,12 +250,120 @@ export class File extends QueryableInstance {
     }
 
     /**
-     * Uploads a binary file.
+     * Reverts an existing checkout for the file.
      * 
-     * @data The file contents.
      */
-    public saveBinaryStream(data: Blob): Promise<void> {
-        return new File(this, "saveBinary").post({ body: data });
+    public undoCheckout(): Promise<void> {
+        return new File(this, "undoCheckout").post();
+    }
+
+    /**
+     * Removes the file from content approval or unpublish a major version.
+     * 
+     * @param comment The comment for the unpublish operation. Its length must be <= 1023.
+     */
+    public unpublish(comment = ""): Promise<void> {
+        if (comment.length > 1023) {
+            throw new Error("The maximum comment length is 1023 characters.");
+        }
+        return new File(this, `unpublish(comment='${comment}')`).post();
+    }
+
+    /**
+     * Gets the contents of the file as text
+     * 
+     */
+    public getText(): Promise<string> {
+
+        return new File(this, "$value").get(new TextFileParser(), { headers: { "binaryStringResponseBody": "true" } });
+    }
+
+    /**
+     * Gets the contents of the file as a blob, does not work in Node.js
+     * 
+     */
+    public getBlob(): Promise<Blob> {
+
+        return new File(this, "$value").get(new BlobFileParser(), { headers: { "binaryStringResponseBody": "true" } });
+    }
+
+    /**
+     * Gets the contents of a file as an ArrayBuffer, works in Node.js
+     */
+    public getBuffer(): Promise<ArrayBuffer> {
+
+        return new File(this, "$value").get(new BufferFileParser(), { headers: { "binaryStringResponseBody": "true" } });
+    }
+
+    /**
+     * Sets the content of a file, for large files use setContentChunked
+     * 
+     * @param content The file content
+     * 
+     */
+    public setContent(content: string | ArrayBuffer | Blob): Promise<File> {
+
+        let setter = new File(this, "$value");
+
+        return setter.post({
+            body: content,
+            headers: {
+                "X-HTTP-Method": "PUT",
+            },
+        }).then(_ => new File(this));
+    }
+
+    /**
+     * Sets the contents of a file using a chunked upload approach
+     * 
+     * @param file The file to upload
+     * @param progress A callback function which can be used to track the progress of the upload
+     * @param chunkSize The size of each file slice, in bytes (default: 10485760)
+     */
+    public setContentChunked(
+        file: Blob,
+        progress?: (data: ChunkedFileUploadProgressData) => void,
+        chunkSize = 10485760): Promise<File> {
+
+        if (typeof progress === "undefined") {
+            progress = (data) => null;
+        }
+
+        let self = this;
+        let fileSize = file.size;
+
+        let blockCount = parseInt((file.size / chunkSize).toString(), 10) + ((file.size % chunkSize === 0) ? 1 : 0);
+        console.log(`blockCount: ${blockCount}`);
+
+        let uploadId = Util.getGUID();
+
+        // start the chain with the first fragment
+        progress({ blockNumber: 1, chunkSize: chunkSize, currentPointer: 0, fileSize: fileSize, stage: "starting", totalBlocks: blockCount });
+
+        let chain = self.startUpload(uploadId, file.slice(0, chunkSize));
+
+        // skip the first and last blocks
+        for (let i = 2; i < blockCount; i++) {
+
+            chain = chain.then(pointer => {
+
+                progress({ blockNumber: i, chunkSize: chunkSize, currentPointer: pointer, fileSize: fileSize, stage: "continue", totalBlocks: blockCount });
+
+                return self.continueUpload(uploadId, pointer, file.slice(pointer, pointer + chunkSize));
+            });
+
+        }
+
+        return chain.then(pointer => {
+
+            progress({ blockNumber: blockCount, chunkSize: chunkSize, currentPointer: pointer, fileSize: fileSize, stage: "finishing", totalBlocks: blockCount });
+
+            return self.finishUpload(uploadId, pointer, file.slice(pointer));
+
+        }).then(_ => {
+
+            return self;
+        });
     }
 
     /**
@@ -453,26 +380,69 @@ export class File extends QueryableInstance {
      * @param fragment The file contents.
      * @returns The size of the total uploaded data in bytes. 
      */
-    public startUpload(uploadId: string, fragment: Blob): Promise<number> {
-        return new File(this, `startUpload(uploadId=guid'${uploadId}')`).postAs<any, number>({ body: fragment });
+    private startUpload(uploadId: string, fragment: ArrayBuffer | Blob): Promise<number> {
+        return new File(this, `startUpload(uploadId=guid'${uploadId}')`).postAs<any, string>({ body: fragment }).then(n => parseFloat(n));
     }
 
     /**
-     * Reverts an existing checkout for the file.
+     * Continues the chunk upload session with an additional fragment.
+     * The current file content is not changed.
+     * Use the uploadId value that was passed to the StartUpload method that started the upload session.
+     * This method is currently available only on Office 365.
      * 
+     * @param uploadId The unique identifier of the upload session.
+     * @param fileOffset The size of the offset into the file where the fragment starts.
+     * @param fragment The file contents.
+     * @returns The size of the total uploaded data in bytes. 
      */
-    public undoCheckout(): Promise<void> {
-        return new File(this, "undoCheckout").post();
+    private continueUpload(uploadId: string, fileOffset: number, fragment: ArrayBuffer | Blob): Promise<number> {
+        return new File(this, `continueUpload(uploadId=guid'${uploadId}',fileOffset=${fileOffset})`).postAs<any, string>({ body: fragment }).then(n => parseFloat(n));
     }
 
     /**
-     * Removes the file from content approval or unpublish a major version.
+     * Uploads the last file fragment and commits the file. The current file content is changed when this method completes.
+     * Use the uploadId value that was passed to the StartUpload method that started the upload session.
+     * This method is currently available only on Office 365.
      * 
-     * @param comment The comment for the unpublish operation. Its length must be <= 1023.
+     * @param uploadId The unique identifier of the upload session.
+     * @param fileOffset The size of the offset into the file where the fragment starts.
+     * @param fragment The file contents.
+     * @returns The newly uploaded file. 
      */
-    public unpublish(comment = ""): Promise<void> {
-        // TODO: Enforce comment length <= 1023
-        return new File(this, `unpublish(comment='${comment}')`).post();
+    private finishUpload(uploadId: string, fileOffset: number, fragment: ArrayBuffer | Blob): Promise<FileAddResult> {
+        return new File(this, `finishUpload(uploadId=guid'${uploadId}',fileOffset=${fileOffset})`)
+            .postAs<any, { ServerRelativeUrl: string }>({ body: fragment }).then((response) => {
+                return {
+                    data: response,
+                    file: new File(response.ServerRelativeUrl),
+                };
+            });
+    }
+}
+
+export class TextFileParser implements ODataParser<any, string> {
+
+    public parse(r: Response): Promise<string> {
+        return r.text();
+    }
+}
+
+export class BlobFileParser implements ODataParser<any, Blob> {
+
+    public parse(r: Response): Promise<Blob> {
+        return r.blob();
+    }
+}
+
+export class BufferFileParser implements ODataParser<any, ArrayBuffer> {
+
+    public parse(r: any): Promise<ArrayBuffer> {
+
+        if (Util.isFunction(r.arrayBuffer)) {
+            return r.arrayBuffer();
+        }
+
+        return r.buffer();
     }
 }
 
@@ -553,71 +523,6 @@ export class Version extends QueryableInstance {
      */
     constructor(baseUrl: string | Queryable, path?: string) {
         super(baseUrl, path);
-    }
-
-    /**
-     * Gets a value that specifies the check-in comment.
-     * 
-     */
-    public get checkInComment(): Queryable {
-        return new Queryable(this, "checkInComment");
-    }
-
-    /**
-     * Gets a value that specifies the creation date and time for the file version.
-     * 
-     */
-    public get created(): Queryable {
-        return new Queryable(this, "created");
-    }
-
-    /**
-     * Gets a value that specifies the user that represents the creator of the file version.
-     * 
-     */
-    public get createdBy(): Queryable {
-        return new Queryable(this, "createdBy");
-    }
-
-    /**
-     * Gets the internal identifier for the file version.
-     * 
-     */
-    public get id(): Queryable {
-        return new Queryable(this, "id");
-    }
-
-    /**
-     * Gets a value that specifies whether the file version is the current version.
-     * 
-     */
-    public get isCurrentVersion(): Queryable {
-        return new Queryable(this, "isCurrentVersion");
-    }
-
-    /**
-     * Gets a value that specifies the size of this version of the file.
-     * 
-     */
-    public get size(): Queryable {
-        return new Queryable(this, "size");
-    }
-
-    /**
-     * Gets a value that specifies the relative URL of the file version based on the URL for the site or subsite.
-     * 
-     */
-    public get url(): Queryable {
-        return new Queryable(this, "url");
-    }
-
-    /**
-     * Gets a value that specifies the implementation specific identifier of the file.
-     * Uses the majorVersionNumber.minorVersionNumber format, for example: 1.2
-     * 
-     */
-    public get versionLabel(): Queryable {
-        return new Queryable(this, "versionLabel");
     }
 
     /**
