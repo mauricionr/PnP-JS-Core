@@ -1,10 +1,10 @@
 /**
- * sp-pnp-js v1.0.5 - A reusable JavaScript library targeting SharePoint client-side development.
+ * sp-pnp-js v1.0.6 - A reusable JavaScript library targeting SharePoint client-side development.
  * MIT (https://github.com/OfficeDev/PnP-JS-Core/blob/master/LICENSE)
  * Copyright (c) 2016 Microsoft
  * docs: http://officedev.github.io/PnP-JS-Core
- * source: https://github.com/OfficeDev/PnP-JS-Core
- * bugs: https://github.com/OfficeDev/PnP-JS-Core/issues
+ * source: https://github.com/SharePoint/PnP-JS-Core
+ * bugs: https://github.com/SharePoint/PnP-JS-Core/issues
  */
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}(g.$pnp || (g.$pnp = {})).Provisioning = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 "use strict";
@@ -269,7 +269,7 @@ var HttpClient = (function () {
             headers.append("Content-Type", "application/json;odata=verbose;charset=utf-8");
         }
         if (!headers.has("X-ClientService-ClientTag")) {
-            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.5");
+            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.6");
         }
         opts = util_1.Util.extend(opts, { headers: headers });
         if (opts.method && opts.method.toUpperCase() !== "GET") {
@@ -327,6 +327,16 @@ var HttpClient = (function () {
     HttpClient.prototype.post = function (url, options) {
         if (options === void 0) { options = {}; }
         var opts = util_1.Util.extend(options, { method: "POST" });
+        return this.fetch(url, opts);
+    };
+    HttpClient.prototype.patch = function (url, options) {
+        if (options === void 0) { options = {}; }
+        var opts = util_1.Util.extend(options, { method: "PATCH" });
+        return this.fetch(url, opts);
+    };
+    HttpClient.prototype.delete = function (url, options) {
+        if (options === void 0) { options = {}; }
+        var opts = util_1.Util.extend(options, { method: "DELETE" });
         return this.fetch(url, opts);
     };
     HttpClient.prototype.getFetchImpl = function () {
@@ -1794,21 +1804,23 @@ var ODataParserBase = (function () {
     function ODataParserBase() {
     }
     ODataParserBase.prototype.parse = function (r) {
-        return r.json().then(function (json) {
-            var result = json;
-            if (json.hasOwnProperty("d")) {
-                if (json.d.hasOwnProperty("results")) {
-                    result = json.d.results;
-                }
-                else {
-                    result = json.d;
-                }
+        var _this = this;
+        return r.json().then(function (json) { return _this.parseODataJSON(json); });
+    };
+    ODataParserBase.prototype.parseODataJSON = function (json) {
+        var result = json;
+        if (json.hasOwnProperty("d")) {
+            if (json.d.hasOwnProperty("results")) {
+                result = json.d.results;
             }
-            else if (json.hasOwnProperty("value")) {
-                result = json.value;
+            else {
+                result = json.d;
             }
-            return result;
-        });
+        }
+        else if (json.hasOwnProperty("value")) {
+            result = json.value;
+        }
+        return result;
     };
     return ODataParserBase;
 }());
@@ -1898,11 +1910,12 @@ function ODataEntityArray(factory) {
 }
 exports.ODataEntityArray = ODataEntityArray;
 var ODataBatch = (function () {
-    function ODataBatch(_batchId) {
+    function ODataBatch(baseUrl, _batchId) {
         if (_batchId === void 0) { _batchId = util_1.Util.getGUID(); }
+        this.baseUrl = baseUrl;
         this._batchId = _batchId;
         this._requests = [];
-        this._batchDepCount = 0;
+        this._batchDependencies = Promise.resolve();
     }
     ODataBatch.prototype.add = function (url, method, options, parser) {
         var info = {
@@ -1920,27 +1933,22 @@ var ODataBatch = (function () {
         this._requests.push(info);
         return p;
     };
-    ODataBatch.prototype.incrementBatchDep = function () {
-        this._batchDepCount++;
-    };
-    ODataBatch.prototype.decrementBatchDep = function () {
-        this._batchDepCount--;
+    ODataBatch.prototype.addBatchDependency = function () {
+        var resolver;
+        var promise = new Promise(function (resolve) {
+            resolver = resolve;
+        });
+        this._batchDependencies = this._batchDependencies.then(function () { return promise; });
+        return resolver;
     };
     ODataBatch.prototype.execute = function () {
         var _this = this;
-        return new Promise(function (resolve, reject) {
-            if (_this._batchDepCount > 0) {
-                setTimeout(function () { return _this.execute(); }, 100);
-            }
-            else {
-                _this.executeImpl().then(function () { return resolve(); }).catch(reject);
-            }
-        });
+        return this._batchDependencies.then(function () { return _this.executeImpl(); });
     };
     ODataBatch.prototype.executeImpl = function () {
         var _this = this;
         if (this._requests.length < 1) {
-            return new Promise(function (r) { return r(); });
+            return Promise.resolve();
         }
         var batchBody = [];
         var currentChangeSetId = "";
@@ -2006,23 +2014,27 @@ var ODataBatch = (function () {
             "headers": batchHeaders,
         };
         var client = new httpclient_1.HttpClient();
-        return client.post(util_1.Util.makeUrlAbsolute("/_api/$batch"), batchOptions)
+        var requestUrl = util_1.Util.makeUrlAbsolute(util_1.Util.combinePaths(this.baseUrl, "/_api/$batch"));
+        return client.post(requestUrl, batchOptions)
             .then(function (r) { return r.text(); })
             .then(this._parseResponse)
             .then(function (responses) {
             if (responses.length !== _this._requests.length) {
                 throw new Error("Could not properly parse responses to match requests in batch.");
             }
-            var resolutions = [];
-            for (var i = 0; i < responses.length; i++) {
+            var chain = Promise.resolve();
+            var _loop_1 = function(i) {
                 var request = _this._requests[i];
                 var response = responses[i];
                 if (!response.ok) {
                     request.reject(new Error(response.statusText));
                 }
-                resolutions.push(request.parser.parse(response).then(request.resolve).catch(request.reject));
+                chain = chain.then(function (_) { return request.parser.parse(response).then(request.resolve).catch(request.reject); });
+            };
+            for (var i = 0; i < responses.length; i++) {
+                _loop_1(i);
             }
-            return Promise.all(resolutions);
+            return chain;
         });
     };
     ODataBatch.prototype._parseResponse = function (body) {

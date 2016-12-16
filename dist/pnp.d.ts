@@ -91,7 +91,7 @@ declare module "utils/util" {
          */
         static stringIsNullOrEmpty(s: string): boolean;
         /**
-         * Provides functionality to extend the given object by doign a shallow copy
+         * Provides functionality to extend the given object by doing a shallow copy
          *
          * @param target The object to which properties will be copied
          * @param source The source object from which properties will be copied
@@ -333,15 +333,6 @@ declare module "configuration/providers/cachingConfigurationProvider" {
         private selectPnPCache();
     }
 }
-declare module "net/fetchclient" {
-    import { HttpClientImpl } from "net/httpclient";
-    /**
-     * Makes requests using the fetch API
-     */
-    export class FetchClient implements HttpClientImpl {
-        fetch(url: string, options: any): Promise<Response>;
-    }
-}
 declare module "utils/logging" {
     /**
      * A set of logging levels
@@ -492,6 +483,15 @@ declare module "utils/logging" {
         log(entry: LogEntry): void;
     }
 }
+declare module "net/fetchclient" {
+    import { HttpClientImpl } from "net/httpclient";
+    /**
+     * Makes requests using the fetch API
+     */
+    export class FetchClient implements HttpClientImpl {
+        fetch(url: string, options: any): Promise<Response>;
+    }
+}
 declare module "configuration/pnplibconfig" {
     import { TypedHash } from "collections/collections";
     export interface NodeClientData {
@@ -554,6 +554,7 @@ declare module "sharepoint/rest/odata" {
     }
     export abstract class ODataParserBase<T, U> implements ODataParser<T, U> {
         parse(r: Response): Promise<U>;
+        protected parseODataJSON<U>(json: any): U;
     }
     export class ODataDefaultParser extends ODataParserBase<any, any> {
     }
@@ -568,10 +569,11 @@ declare module "sharepoint/rest/odata" {
      * Manages a batch of OData operations
      */
     export class ODataBatch {
+        private baseUrl;
         private _batchId;
-        private _batchDepCount;
+        private _batchDependencies;
         private _requests;
-        constructor(_batchId?: string);
+        constructor(baseUrl: string, _batchId?: string);
         /**
          * Adds a request to a batch (not designed for public use)
          *
@@ -581,8 +583,7 @@ declare module "sharepoint/rest/odata" {
          * @param parser The parser that will hadle the results of the request
          */
         add<U>(url: string, method: string, options: any, parser: ODataParser<any, U>): Promise<U>;
-        incrementBatchDep(): void;
-        decrementBatchDep(): void;
+        addBatchDependency(): () => void;
         /**
          * Execute the current batch and resolve the associated promises
          *
@@ -680,6 +681,8 @@ declare module "net/httpclient" {
         fetchRaw(url: string, options?: FetchOptions): Promise<Response>;
         get(url: string, options?: FetchOptions): Promise<Response>;
         post(url: string, options?: FetchOptions): Promise<Response>;
+        patch(url: string, options?: FetchOptions): Promise<Response>;
+        delete(url: string, options?: FetchOptions): Promise<Response>;
         protected getFetchImpl(): HttpClientImpl;
         private mergeHeaders(target, source);
     }
@@ -760,13 +763,9 @@ declare module "sharepoint/rest/queryable" {
          */
         protected append(pathPart: string): void;
         /**
-         * Blocks a batch call from occuring, MUST be cleared with clearBatchDependency before a request will execute
+         * Blocks a batch call from occuring, MUST be cleared by calling the returned function
          */
-        protected addBatchDependency(): void;
-        /**
-         * Clears a batch request dependency
-         */
-        protected clearBatchDependency(): void;
+        protected addBatchDependency(): () => void;
         /**
          * Indicates if the current query has a batch associated
          *
@@ -798,6 +797,7 @@ declare module "sharepoint/rest/queryable" {
          *
          * let b = pnp.sp.createBatch();
          * pnp.sp.web.inBatch(b).get().then(...);
+         * b.execute().then(...)
          * ```
          */
         inBatch(batch: ODataBatch): this;
@@ -808,7 +808,7 @@ declare module "sharepoint/rest/queryable" {
          */
         usingCaching(options?: ICachingOptions): this;
         /**
-         * Gets the currentl url, made server relative or absolute based on the availability of the _spPageContextInfo object
+         * Gets the currentl url, made absolute based on the availability of the _spPageContextInfo object
          *
          */
         toUrl(): string;
@@ -825,8 +825,10 @@ declare module "sharepoint/rest/queryable" {
         getAs<T, U>(parser?: ODataParser<T, U>, getOptions?: FetchOptions): Promise<U>;
         protected post(postOptions?: FetchOptions, parser?: ODataParser<any, any>): Promise<any>;
         protected postAs<T, U>(postOptions?: FetchOptions, parser?: ODataParser<T, U>): Promise<U>;
+        protected patch(patchOptions?: FetchOptions, parser?: ODataParser<any, any>): Promise<any>;
+        protected delete(deleteOptions?: FetchOptions, parser?: ODataParser<any, any>): Promise<any>;
         /**
-         * Gets a parent for this isntance as specified
+         * Gets a parent for this instance as specified
          *
          * @param factory The contructor for the class to create
          */
@@ -835,6 +837,9 @@ declare module "sharepoint/rest/queryable" {
         }, baseUrl?: string | Queryable, path?: string): T;
         private getImpl<U>(getOptions, parser);
         private postImpl<U>(postOptions, parser);
+        private patchImpl<U>(patchOptions, parser);
+        private deleteImpl<U>(deleteOptions, parser);
+        private processHttpClientResponse<U>(response, parser);
     }
     /**
      * Represents a REST collection which can be filtered, paged, and selected
@@ -846,38 +851,38 @@ declare module "sharepoint/rest/queryable" {
          *
          * @param filter The string representing the filter query
          */
-        filter(filter: string): QueryableCollection;
+        filter(filter: string): this;
         /**
          * Choose which fields to return
          *
          * @param selects One or more fields to return
          */
-        select(...selects: string[]): QueryableCollection;
+        select(...selects: string[]): this;
         /**
          * Expands fields such as lookups to get additional data
          *
          * @param expands The Fields for which to expand the values
          */
-        expand(...expands: string[]): QueryableCollection;
+        expand(...expands: string[]): this;
         /**
          * Orders based on the supplied fields ascending
          *
          * @param orderby The name of the field to sort on
          * @param ascending If false DESC is appended, otherwise ASC (default)
          */
-        orderBy(orderBy: string, ascending?: boolean): QueryableCollection;
+        orderBy(orderBy: string, ascending?: boolean): this;
         /**
          * Skips the specified number of items
          *
          * @param skip The number of items to skip
          */
-        skip(skip: number): QueryableCollection;
+        skip(skip: number): this;
         /**
          * Limits the query to only return the specified number of items
          *
          * @param top The query row limit
          */
-        top(top: number): QueryableCollection;
+        top(top: number): this;
     }
     /**
      * Represents an instance that can be selected
@@ -889,13 +894,13 @@ declare module "sharepoint/rest/queryable" {
          *
          * @param selects One or more fields to return
          */
-        select(...selects: string[]): QueryableInstance;
+        select(...selects: string[]): this;
         /**
          * Expands fields such as lookups to get additional data
          *
          * @param expands The Fields for which to expand the values
          */
-        expand(...expands: string[]): QueryableInstance;
+        expand(...expands: string[]): this;
     }
 }
 declare module "sharepoint/rest/types" {
@@ -1828,6 +1833,15 @@ declare module "sharepoint/rest/queryablesecurable" {
 declare module "sharepoint/rest/files" {
     import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
     import { Item } from "sharepoint/rest/items";
+    import { ODataParser } from "sharepoint/rest/odata";
+    export interface ChunkedFileUploadProgressData {
+        stage: "starting" | "continue" | "finishing";
+        blockNumber: number;
+        totalBlocks: number;
+        chunkSize: number;
+        currentPointer: number;
+        fileSize: number;
+    }
     /**
      * Describes a collection of File objects
      *
@@ -1849,11 +1863,22 @@ declare module "sharepoint/rest/files" {
          * Uploads a file.
          *
          * @param url The folder-relative url of the file.
-         * @param shouldOverWrite Should a file with the same name in the same location be overwritten?
          * @param content The file contents blob.
+         * @param shouldOverWrite Should a file with the same name in the same location be overwritten? (default: true)
          * @returns The new File and the raw response.
          */
         add(url: string, content: Blob, shouldOverWrite?: boolean): Promise<FileAddResult>;
+        /**
+         * Uploads a file.
+         *
+         * @param url The folder-relative url of the file.
+         * @param content The Blob file content to add
+         * @param progress A callback function which can be used to track the progress of the upload
+         * @param shouldOverWrite Should a file with the same name in the same location be overwritten? (default: true)
+         * @param chunkSize The size of each file slice, in bytes (default: 10485760)
+         * @returns The new File and the raw response.
+         */
+        addChunked(url: string, content: Blob, progress?: (data: ChunkedFileUploadProgressData) => void, shouldOverWrite?: boolean, chunkSize?: number): Promise<FileAddResult>;
         /**
          * Adds a ghosted file to an existing list or document library.
          *
@@ -1886,11 +1911,6 @@ declare module "sharepoint/rest/files" {
          */
         readonly versions: Versions;
         /**
-         * Gets the contents of the file - If the file is not JSON a custom parser function should be used with the get call
-         *
-         */
-        readonly value: Queryable;
-        /**
          * Approves the file submitted for content approval with the specified comment.
          * Only documents in lists that are enabled for content approval can be approved.
          *
@@ -1919,18 +1939,6 @@ declare module "sharepoint/rest/files" {
          */
         checkout(): Promise<void>;
         /**
-         * Continues the chunk upload session with an additional fragment.
-         * The current file content is not changed.
-         * Use the uploadId value that was passed to the StartUpload method that started the upload session.
-         * This method is currently available only on Office 365.
-         *
-         * @param uploadId The unique identifier of the upload session.
-         * @param fileOffset The size of the offset into the file where the fragment starts.
-         * @param fragment The file contents.
-         * @returns The size of the total uploaded data in bytes.
-         */
-        continueUpload(uploadId: string, fileOffset: number, b: Blob): Promise<number>;
-        /**
          * Copies the file to the destination url.
          *
          * @param url The absolute url or server relative url of the destination file path to copy to.
@@ -1951,17 +1959,6 @@ declare module "sharepoint/rest/files" {
          */
         deny(comment?: string): Promise<void>;
         /**
-         * Uploads the last file fragment and commits the file. The current file content is changed when this method completes.
-         * Use the uploadId value that was passed to the StartUpload method that started the upload session.
-         * This method is currently available only on Office 365.
-         *
-         * @param uploadId The unique identifier of the upload session.
-         * @param fileOffset The size of the offset into the file where the fragment starts.
-         * @param fragment The file contents.
-         * @returns The newly uploaded file.
-         */
-        finishUpload(uploadId: string, fileOffset: number, fragment: Blob): Promise<FileAddResult>;
-        /**
          * Specifies the control set used to access, modify, or add Web Parts associated with this Web Part Page and view.
          * An exception is thrown if the file is not an ASPX page.
          *
@@ -1976,11 +1973,6 @@ declare module "sharepoint/rest/files" {
          */
         moveTo(url: string, moveOperations?: MoveOperations): Promise<void>;
         /**
-         * Opens the file as a stream.
-         *
-         */
-        openBinaryStream(): Queryable;
-        /**
          * Submits the file for content approval with the specified comment.
          *
          * @param comment The comment for the published file. Its length must be <= 1023.
@@ -1993,11 +1985,45 @@ declare module "sharepoint/rest/files" {
          */
         recycle(): Promise<string>;
         /**
-         * Uploads a binary file.
+         * Reverts an existing checkout for the file.
          *
-         * @data The file contents.
          */
-        saveBinaryStream(data: Blob): Promise<void>;
+        undoCheckout(): Promise<void>;
+        /**
+         * Removes the file from content approval or unpublish a major version.
+         *
+         * @param comment The comment for the unpublish operation. Its length must be <= 1023.
+         */
+        unpublish(comment?: string): Promise<void>;
+        /**
+         * Gets the contents of the file as text
+         *
+         */
+        getText(): Promise<string>;
+        /**
+         * Gets the contents of the file as a blob, does not work in Node.js
+         *
+         */
+        getBlob(): Promise<Blob>;
+        /**
+         * Gets the contents of a file as an ArrayBuffer, works in Node.js
+         */
+        getBuffer(): Promise<ArrayBuffer>;
+        /**
+         * Sets the content of a file, for large files use setContentChunked
+         *
+         * @param content The file content
+         *
+         */
+        setContent(content: string | ArrayBuffer | Blob): Promise<File>;
+        /**
+         * Sets the contents of a file using a chunked upload approach
+         *
+         * @param file The file to upload
+         * @param progress A callback function which can be used to track the progress of the upload
+         * @param chunkSize The size of each file slice, in bytes (default: 10485760)
+         */
+        setContentChunked(file: Blob, progress?: (data: ChunkedFileUploadProgressData) => void, chunkSize?: number): Promise<File>;
         /**
          * Starts a new chunk upload session and uploads the first fragment.
          * The current file content is not changed when this method completes.
@@ -2012,18 +2038,39 @@ declare module "sharepoint/rest/files" {
          * @param fragment The file contents.
          * @returns The size of the total uploaded data in bytes.
          */
-        startUpload(uploadId: string, fragment: Blob): Promise<number>;
+        private startUpload(uploadId, fragment);
         /**
-         * Reverts an existing checkout for the file.
+         * Continues the chunk upload session with an additional fragment.
+         * The current file content is not changed.
+         * Use the uploadId value that was passed to the StartUpload method that started the upload session.
+         * This method is currently available only on Office 365.
          *
+         * @param uploadId The unique identifier of the upload session.
+         * @param fileOffset The size of the offset into the file where the fragment starts.
+         * @param fragment The file contents.
+         * @returns The size of the total uploaded data in bytes.
          */
-        undoCheckout(): Promise<void>;
+        private continueUpload(uploadId, fileOffset, fragment);
         /**
-         * Removes the file from content approval or unpublish a major version.
+         * Uploads the last file fragment and commits the file. The current file content is changed when this method completes.
+         * Use the uploadId value that was passed to the StartUpload method that started the upload session.
+         * This method is currently available only on Office 365.
          *
-         * @param comment The comment for the unpublish operation. Its length must be <= 1023.
+         * @param uploadId The unique identifier of the upload session.
+         * @param fileOffset The size of the offset into the file where the fragment starts.
+         * @param fragment The file contents.
+         * @returns The newly uploaded file.
          */
-        unpublish(comment?: string): Promise<void>;
+        private finishUpload(uploadId, fileOffset, fragment);
+    }
+    export class TextFileParser implements ODataParser<any, string> {
+        parse(r: Response): Promise<string>;
+    }
+    export class BlobFileParser implements ODataParser<any, Blob> {
+        parse(r: Response): Promise<Blob>;
+    }
+    export class BufferFileParser implements ODataParser<any, ArrayBuffer> {
+        parse(r: any): Promise<ArrayBuffer>;
     }
     /**
      * Describes a collection of Version objects
@@ -2205,6 +2252,7 @@ declare module "sharepoint/rest/folders" {
     }
 }
 declare module "sharepoint/rest/contenttypes" {
+    import { TypedHash } from "collections/collections";
     import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
     /**
      * Describes a collection of content types
@@ -2221,6 +2269,23 @@ declare module "sharepoint/rest/contenttypes" {
          * Gets a ContentType by content type id
          */
         getById(id: string): ContentType;
+        /**
+         * Adds an existing contenttype to a content type collection
+         *
+         * @param contentTypeId in the following format, for example: 0x010102
+         */
+        addAvailableContentType(contentTypeId: string): Promise<ContentTypeAddResult>;
+        /**
+         * Adds a new content type to the collection
+         *
+         * @param id The desired content type id for the new content type (also determines the parent content type)
+         * @param name The name of the content type
+         * @param description The description of the content type
+         * @param group The group in which to add the content type
+         * @param additionalSettings Any additional settings to provide when creating the content type
+         *
+         */
+        add(id: string, name: string, description?: string, group?: string, additionalSettings?: TypedHash<string | number | boolean>): Promise<ContentTypeAddResult>;
     }
     /**
      * Describes a single ContentType instance
@@ -2249,6 +2314,10 @@ declare module "sharepoint/rest/contenttypes" {
          * Gets a value that specifies the collection of workflow associations for the content type.
          */
         readonly workflowAssociations: Queryable;
+    }
+    export interface ContentTypeAddResult {
+        contentType: ContentType;
+        data: any;
     }
 }
 declare module "sharepoint/rest/items" {
@@ -2280,7 +2349,7 @@ declare module "sharepoint/rest/items" {
          *
          * @param skip The starting id where the page should start, use with top to specify pages
          */
-        skip(skip: number): QueryableCollection;
+        skip(skip: number): this;
         /**
          * Gets a collection designed to aid in paging through data
          *
@@ -2388,25 +2457,13 @@ declare module "sharepoint/rest/items" {
      * Provides paging functionality for list items
      */
     export class PagedItemCollection<T> {
-        /**
-         * Contains the results of the query
-         */
-        results: T;
-        /**
-         * The url to the next set of results
-         */
         private nextUrl;
+        results: T;
+        constructor(nextUrl: string, results: T);
         /**
          * If true there are more results available in the set, otherwise there are not
          */
         readonly hasNext: boolean;
-        /**
-         * Creats a new instance of the PagedItemCollection class from the response
-         *
-         * @param r Response instance from which this collection will be created
-         *
-         */
-        static fromResponse(r: Response): Promise<PagedItemCollection<any>>;
         /**
          * Gets the next set of results, or resolves to null if no results are available
          */
@@ -2705,6 +2762,61 @@ declare module "sharepoint/rest/forms" {
         constructor(baseUrl: string | Queryable, path?: string);
     }
 }
+declare module "sharepoint/rest/subscriptions" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
+    /**
+     * Describes a collection of webhook subscriptions
+     *
+     */
+    export class Subscriptions extends QueryableCollection {
+        /**
+         * Creates a new instance of the Subscriptions class
+         *
+         * @param baseUrl - The url or Queryable which forms the parent of this webhook subscriptions collection
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Returns all the webhook subscriptions or the specified webhook subscription
+         *
+         */
+        getById(subscriptionId: string): Subscription;
+        /**
+         * Create a new webhook subscription
+         *
+         */
+        add(notificationUrl: string, expirationDate: string, clientState?: string): Promise<SubscriptionAddResult>;
+    }
+    /**
+     * Describes a single webhook subscription instance
+     *
+     */
+    export class Subscription extends QueryableInstance {
+        /**
+         * Creates a new instance of the Subscription class
+         *
+         * @param baseUrl - The url or Queryable which forms the parent of this webhook subscription instance
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Update a webhook subscription
+         *
+         */
+        update(expirationDate: string): Promise<SubscriptionUpdateResult>;
+        /**
+         * Remove a webhook subscription
+         *
+         */
+        delete(): Promise<void>;
+    }
+    export interface SubscriptionAddResult {
+        subscription: Subscription;
+        data: any;
+    }
+    export interface SubscriptionUpdateResult {
+        subscription: Subscription;
+        data: any;
+    }
+}
 declare module "sharepoint/rest/usercustomactions" {
     import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
     import { TypedHash } from "collections/collections";
@@ -2748,6 +2860,7 @@ declare module "sharepoint/rest/lists" {
     import { ContentTypes } from "sharepoint/rest/contenttypes";
     import { Fields } from "sharepoint/rest/fields";
     import { Forms } from "sharepoint/rest/forms";
+    import { Subscriptions } from "sharepoint/rest/subscriptions";
     import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
     import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
     import { TypedHash } from "collections/collections";
@@ -2873,6 +2986,11 @@ declare module "sharepoint/rest/lists" {
          *
          */
         readonly informationRightsManagementSettings: Queryable;
+        /**
+         * Gets the webhook subscriptions of this list
+         *
+         */
+        readonly subscriptions: Subscriptions;
         /**
          * Gets a view by view guid id
          *
@@ -3023,6 +3141,7 @@ declare module "sharepoint/rest/webs" {
     import { List } from "sharepoint/rest/lists";
     import { SiteUsers, SiteUser } from "sharepoint/rest/siteusers";
     import { UserCustomActions } from "sharepoint/rest/usercustomactions";
+    import { ODataBatch } from "sharepoint/rest/odata";
     export class Webs extends QueryableCollection {
         constructor(baseUrl: string | Queryable, webPath?: string);
         /**
@@ -3095,6 +3214,11 @@ declare module "sharepoint/rest/webs" {
          *
          */
         readonly roleDefinitions: RoleDefinitions;
+        /**
+         * Creates a new batch for requests within the context of context this web
+         *
+         */
+        createBatch(): ODataBatch;
         /**
          * Get a folder by server relative url
          *
@@ -3427,7 +3551,7 @@ declare module "sharepoint/rest/search" {
         /**
          * The set of refiners to return in a search result.
          */
-        Refiners?: string[];
+        Refiners?: string;
         /**
          * The additional query terms to append to the query.
          */
@@ -3460,6 +3584,10 @@ declare module "sharepoint/rest/search" {
          * Custom tags that identify the query. You can specify multiple query tags
          */
         QueryTag?: string[];
+        /**
+         * Properties to be used to configure the search query
+         */
+        Properties?: SearchProperty[];
         /**
          *  A Boolean value that specifies whether to return personal favorites with the search results.
          */
@@ -3521,7 +3649,7 @@ declare module "sharepoint/rest/search" {
          * .......
          * @returns Promise
          */
-        execute(query: SearchQuery): Promise<SearchResult>;
+        execute(query: SearchQuery): Promise<SearchResults>;
     }
     /**
      * Describes the SearchResults class, which returns the formatted and raw version of the query response
@@ -3569,6 +3697,20 @@ declare module "sharepoint/rest/search" {
         Direction: SortDirection;
     }
     /**
+     * Defines one search property
+     */
+    export interface SearchProperty {
+        Name: string;
+        Value: SearchPropertyValue;
+    }
+    /**
+     * Defines one search property value
+     */
+    export interface SearchPropertyValue {
+        StrVal: string;
+        QueryPropertyValueTypeIndex: QueryPropertyValueType;
+    }
+    /**
      * defines the SortDirection enum
      */
     export enum SortDirection {
@@ -3608,11 +3750,6 @@ declare module "sharepoint/rest/search" {
         ManualCondition = 8,
     }
     /**
-     * Defines how search results are sorted.
-     */
-    export interface QueryProperty {
-    }
-    /**
      * Specifies the type value for the property
      */
     export enum QueryPropertyValueType {
@@ -3624,11 +3761,86 @@ declare module "sharepoint/rest/search" {
         UnSupportedType = 5,
     }
 }
+declare module "sharepoint/rest/searchsuggest" {
+    import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
+    /**
+     * Defines a query execute against the search/suggest endpoint (see https://msdn.microsoft.com/en-us/library/office/dn194079.aspx)
+     */
+    export interface SearchSuggestQuery {
+        /**
+         * A string that contains the text for the search query.
+         */
+        querytext: string;
+        /**
+         * The number of query suggestions to retrieve. Must be greater than zero (0). The default value is 5.
+         */
+        count?: number;
+        /**
+         * The number of personal results to retrieve. Must be greater than zero (0). The default value is 5.
+         */
+        personalCount?: number;
+        /**
+         * A Boolean value that specifies whether to retrieve pre-query or post-query suggestions. true to return pre-query suggestions; otherwise, false. The default value is false.
+         */
+        preQuery?: boolean;
+        /**
+         * A Boolean value that specifies whether to hit-highlight or format in bold the query suggestions. true to format in bold the terms in the returned query suggestions
+         * that match terms in the specified query; otherwise, false. The default value is true.
+         */
+        hitHighlighting?: boolean;
+        /**
+         * A Boolean value that specifies whether to capitalize the first letter in each term in the returned query suggestions. true to capitalize the first letter in each term;
+         * otherwise, false. The default value is false.
+         */
+        capitalize?: boolean;
+        /**
+         * The locale ID (LCID) for the query (see https://msdn.microsoft.com/en-us/library/cc233982.aspx).
+         */
+        culture?: string;
+        /**
+         * A Boolean value that specifies whether stemming is enabled. true to enable stemming; otherwise, false. The default value is true.
+         */
+        stemming?: boolean;
+        /**
+         * A Boolean value that specifies whether to include people names in the returned query suggestions. true to include people names in the returned query suggestions;
+         * otherwise, false. The default value is true.
+         */
+        includePeople?: boolean;
+        /**
+         * A Boolean value that specifies whether to turn on query rules for this query. true to turn on query rules; otherwise, false. The default value is true.
+         */
+        queryRules?: boolean;
+        /**
+         * A Boolean value that specifies whether to return query suggestions for prefix matches. true to return query suggestions based on prefix matches, otherwise, false when
+         * query suggestions should match the full query word.
+         */
+        prefixMatch?: boolean;
+    }
+    export class SearchSuggest extends QueryableInstance {
+        constructor(baseUrl: string | Queryable, path?: string);
+        execute(query: SearchSuggestQuery): Promise<SearchSuggestResult>;
+        private mapQueryToQueryString(query);
+    }
+    export class SearchSuggestResult {
+        PeopleNames: string[];
+        PersonalResults: PersonalResultSuggestion[];
+        Queries: any[];
+        constructor(json: any);
+    }
+    export interface PersonalResultSuggestion {
+        HighlightedTitle?: string;
+        IsBestBet?: boolean;
+        Title?: string;
+        TypeId?: string;
+        Url?: string;
+    }
+}
 declare module "sharepoint/rest/site" {
     import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
     import { Web } from "sharepoint/rest/webs";
     import { UserCustomActions } from "sharepoint/rest/usercustomactions";
     import { ContextInfo, DocumentLibraryInformation } from "sharepoint/rest/types";
+    import { ODataBatch } from "sharepoint/rest/odata";
     /**
      * Describes a site collection
      *
@@ -3666,6 +3878,11 @@ declare module "sharepoint/rest/site" {
          * @param absolutePageUrl The absolute url of the page
          */
         getWebUrlFromPageUrl(absolutePageUrl: string): Promise<string>;
+        /**
+         * Creates a new batch for requests within the context of context this site
+         *
+         */
+        createBatch(): ODataBatch;
     }
 }
 declare module "utils/files" {
@@ -3803,7 +4020,8 @@ declare module "sharepoint/rest/userprofiles" {
     }
 }
 declare module "sharepoint/rest/rest" {
-    import { SearchQuery, SearchResult } from "sharepoint/rest/search";
+    import { SearchQuery, SearchResults } from "sharepoint/rest/search";
+    import { SearchSuggestQuery, SearchSuggestResult } from "sharepoint/rest/searchsuggest";
     import { Site } from "sharepoint/rest/site";
     import { Web } from "sharepoint/rest/webs";
     import { UserProfileQuery } from "sharepoint/rest/userprofiles";
@@ -3817,7 +4035,13 @@ declare module "sharepoint/rest/rest" {
          *
          * @param query The SearchQuery definition
          */
-        search(query: string | SearchQuery): Promise<SearchResult>;
+        searchSuggest(query: string | SearchSuggestQuery): Promise<SearchSuggestResult>;
+        /**
+         * Executes a search against this web context
+         *
+         * @param query The SearchQuery definition
+         */
+        search(query: string | SearchQuery): Promise<SearchResults>;
         /**
          * Begins a site collection scoped REST request
          *
@@ -3866,16 +4090,18 @@ declare module "sharepoint/rest/rest" {
 declare module "sharepoint/rest/index" {
     export * from "sharepoint/rest/caching";
     export { FieldAddResult, FieldUpdateResult } from "sharepoint/rest/fields";
-    export { CheckinType, FileAddResult, WebPartsPersonalizationScope, MoveOperations, TemplateFileType } from "sharepoint/rest/files";
+    export { CheckinType, FileAddResult, WebPartsPersonalizationScope, MoveOperations, TemplateFileType, TextFileParser, BlobFileParser, BufferFileParser, ChunkedFileUploadProgressData } from "sharepoint/rest/files";
     export { FolderAddResult } from "sharepoint/rest/folders";
     export { ItemAddResult, ItemUpdateResult, PagedItemCollection } from "sharepoint/rest/items";
     export { ListAddResult, ListUpdateResult, ListEnsureResult } from "sharepoint/rest/lists";
     export { extractOdataId, ODataParser, ODataParserBase, ODataDefaultParser, ODataRaw, ODataValue, ODataEntity, ODataEntityArray } from "sharepoint/rest/odata";
     export { RoleDefinitionUpdateResult, RoleDefinitionAddResult, RoleDefinitionBindings } from "sharepoint/rest/roles";
-    export { SearchQuery, SearchResult, Sort, SortDirection, ReorderingRule, ReorderingRuleMatchType, QueryPropertyValueType } from "sharepoint/rest/search";
+    export { Search, SearchProperty, SearchPropertyValue, SearchQuery, SearchResult, SearchResults, Sort, SortDirection, ReorderingRule, ReorderingRuleMatchType, QueryPropertyValueType } from "sharepoint/rest/search";
+    export { SearchSuggest, SearchSuggestQuery, SearchSuggestResult, PersonalResultSuggestion } from "sharepoint/rest/searchsuggest";
     export { Site } from "sharepoint/rest/site";
     export { SiteGroupAddResult } from "sharepoint/rest/sitegroups";
     export { UserUpdateResult, UserProps } from "sharepoint/rest/siteusers";
+    export { SubscriptionAddResult, SubscriptionUpdateResult } from "sharepoint/rest/subscriptions";
     export * from "sharepoint/rest/types";
     export { UserCustomActionAddResult, UserCustomActionUpdateResult } from "sharepoint/rest/usercustomactions";
     export { ViewAddResult, ViewUpdateResult } from "sharepoint/rest/views";

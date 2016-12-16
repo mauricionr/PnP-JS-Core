@@ -48,9 +48,9 @@ export class SPRequestExecutorClient implements HttpClientImpl {
             };
 
             if (options.body) {
-                Util.extend(requestOptions, { body: options.body });
+                requestOptions = Util.extend(requestOptions, { body: options.body });
             } else {
-                Util.extend(requestOptions, { binaryStringRequestBody: true });
+                requestOptions = Util.extend(requestOptions, { binaryStringRequestBody: true });
             }
             executor.executeAsync(requestOptions);
         });
