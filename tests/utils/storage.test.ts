@@ -1,5 +1,3 @@
-"use strict";
-
 import { expect } from "chai";
 import * as Storage from "../../src/utils/Storage";
 import MockStorage  from "../mocks/MockStorage";

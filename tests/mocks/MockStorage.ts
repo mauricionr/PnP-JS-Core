@@ -1,5 +1,3 @@
-"use strict";
-
 import * as Collections  from "../../src/collections/collections";
 
 export default class MockStorage implements Storage {

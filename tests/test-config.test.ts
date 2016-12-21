@@ -1,9 +1,9 @@
-"use strict";
 declare var global: any;
 import * as chai from "chai";
+import * as mocha from "mocha";
 import pnp from "../src/pnp";
 import { Util } from "../src/utils/util";
-import { Web } from "../src/sharepoint/rest/webs";
+import { Web } from "../src/sharepoint/webs";
 import * as chaiAsPromised from "chai-as-promised";
 chai.use(chaiAsPromised);
 

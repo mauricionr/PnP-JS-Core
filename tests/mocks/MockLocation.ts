@@ -1,5 +1,3 @@
-"use strict";
-
 export default class MockLocation implements Location {
     public hash: string;
     public host: string;

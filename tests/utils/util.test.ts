@@ -1,16 +1,11 @@
-"use strict";
-
 import { expect } from "chai";
 import { Util } from "../../src/utils/util";
-// import MockLocation = require("../mocks/MockLocation");
-
-// let location: Location;
 
 describe("Util", () => {
 
     describe("getCtxCallback", () => {
         it("Should create contextual callback", () => {
-            let func = function(a) { this.num = this.num + a; };
+            let func = function (a) { this.num = this.num + a; };
             let ctx = { num: 1 };
             let callback = Util.getCtxCallback(ctx, func, 7);
             expect(callback).to.exist;
@@ -51,6 +46,14 @@ describe("Util", () => {
         it("Should combine the paths 'http://site/path/' and '/path4/page.aspx' to be http://site/path/path4/page.aspx", () => {
             expect(Util.combinePaths("http://site/path/", "/path4/page.aspx")).to.eq("http://site/path/path4/page.aspx");
         });
+
+        it("Should combine the paths null, 'path2', undefined, null and '/path4' to be path2/path4", () => {
+            expect(Util.combinePaths(null, "path2", undefined, null, "/path4")).to.eq("path2/path4");
+        });
+
+        it("Should not error with no arguments specified", () => {
+            expect(Util.combinePaths()).to.eq("");
+        });
     });
 
     describe("getRandomString", () => {
@@ -77,11 +80,13 @@ describe("Util", () => {
 
     describe("isFunction", () => {
         it("Should find that a function is a function", () => {
-            expect(Util.isFunction(function() { return; })).to.be.true;
+            expect(Util.isFunction(function () { return; })).to.be.true;
         });
 
         it("Should find that a non-function is not a function", () => {
             expect(Util.isFunction({ val: 0 })).to.be.false;
+            expect(Util.isFunction(null)).to.be.false;
+            expect(Util.isFunction(undefined)).to.be.false;
         });
     });
 });

@@ -1,5 +1,3 @@
-"use strict";
-
 import { IConfigurationProvider } from "../../src/configuration/configuration";
 import { TypedHash } from "../../src/collections/collections";
 

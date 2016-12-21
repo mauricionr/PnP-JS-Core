@@ -30,7 +30,7 @@ Please see [the wiki](https://github.com/SharePoint/PnP-JS-Core/wiki) for detail
 
 ### API Documentation
 
-Explore the [API documentation](http://SharePoint.github.io/PnP-JS-Core/).
+Explore the [API documentation](https://sharepoint.github.io/PnP-JS-Core/).
 
 These pages are generated from the source comments as part of each release. We are always looking for help making these resources better. To make updates, edit the comments in the source and submit a PR against the dev branch. We will merge it there and refresh the pages as part of each release. Updates made directly to the gh-pages branch will be overwritten.
 

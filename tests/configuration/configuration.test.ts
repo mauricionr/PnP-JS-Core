@@ -1,5 +1,3 @@
-"use strict";
-
 import { expect } from "chai";
 import  * as Collections  from "../../src/collections/collections";
 import * as Configuration from "../../src/configuration/configuration";

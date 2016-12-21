@@ -1,8 +1,7 @@
-"use strict";
-
 import {IConfigurationProvider} from "../configuration";
 import {TypedHash} from "../../collections/collections";
 import * as storage from "../../utils/storage";
+import { NoCacheAvailableException } from "../../utils/exceptions";
 
 /** 
  * A caching provider which can wrap other non-caching providers
@@ -49,7 +48,7 @@ export default class CachingConfigurationProvider implements IConfigurationProvi
         // Value is found in cache, return it directly
         let cachedConfig = this.store.get(this.cacheKey);
         if (cachedConfig) {
-            return new Promise<TypedHash<string>>((resolve, reject) => {
+            return new Promise<TypedHash<string>>((resolve) => {
                 resolve(cachedConfig);
             });
         }
@@ -70,6 +69,6 @@ export default class CachingConfigurationProvider implements IConfigurationProvi
         if ((pnpCache.session) && (pnpCache.session.enabled)) {
             return pnpCache.session;
         }
-        throw new Error("Cannot create a caching configuration provider since cache is not available.");
+        throw new NoCacheAvailableException();
     }
 }

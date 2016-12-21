@@ -1,5 +1,3 @@
-"use strict";
-
 import { TypedHash } from "../collections/collections";
 
 declare var global: any;
