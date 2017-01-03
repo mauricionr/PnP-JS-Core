@@ -1,6 +1,7 @@
 declare var require: any;
 import pnp from "../src/pnp";
 import { Logger, LogLevel, ConsoleListener } from "../src/utils/logging";
+import { NodeFetchClient } from "../src/net/nodefetchclient";
 
 // setup the connection to SharePoint using the settings file, you can
 // override any of the values as you want here, just be sure not to commit
@@ -12,10 +13,8 @@ let settings = require("../../settings.js");
 
 // configure your node options
 pnp.setup({
-    nodeClientOptions: {
-        clientId: settings.testing.clientId,
-        clientSecret: settings.testing.clientSecret,
-        siteUrl: settings.testing.siteUrl
+    fetchClientFactory: () => {
+        return new NodeFetchClient(settings.testing.siteUrl, settings.testing.clientId, settings.testing.clientSecret);
     }
 });
 

@@ -3,16 +3,19 @@ import * as Collections  from "../../src/collections/collections";
 export default class MockStorage implements Storage {
     constructor() {
         this._store = new Collections.Dictionary<string>();
+        this._length = 0;
     }
 
     private _store: Collections.Dictionary<any>;
+
+    private _length: number;
 
     public get length(): number {
         return this._store.count();
     }
 
     public set length(i: number) {
-        return;
+        this._length = i;        
     }
 
     public clear(): void {

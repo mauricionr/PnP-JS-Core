@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { SiteUser, SiteUsers } from "../../src/sharepoint/siteUsers";
+import { SiteUser, SiteUsers } from "../../src/sharepoint/siteusers";
 import { toMatchEndRegex } from "../testutils";
 
 describe("SiteUsers", () => {

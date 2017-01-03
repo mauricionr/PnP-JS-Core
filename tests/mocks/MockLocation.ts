@@ -9,16 +9,20 @@ export default class MockLocation implements Location {
     public protocol: string;
     public search: string;
 
+    private _url: string;
+
     public assign(url: string): void {
-        return;
+        this._url = url;
     }
 
     public reload(forcedReload?: boolean): void {
-        return;
+        if (forcedReload) {
+            this._url = "";
+        }
     }
 
     public replace(url: string): void {
-        return;
+        this._url = url;
     }
     public toString(): string {
         return "MockLocation.toString";

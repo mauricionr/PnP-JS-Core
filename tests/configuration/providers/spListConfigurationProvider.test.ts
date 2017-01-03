@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { default as SPListConfigurationProvider } from "../../../src/configuration/providers/spListConfigurationProvider";
-import MockStorage from "../../mocks/MockStorage";
+import MockStorage from "../../mocks/mockstorage";
 import * as Collections  from "../../../src/collections/collections";
 import { Web } from "../../../src/sharepoint/webs";
 

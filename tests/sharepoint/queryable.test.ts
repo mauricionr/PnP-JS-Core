@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { QueryableInstance, QueryableCollection } from "../../src/sharepoint/Queryable";
+import { QueryableInstance, QueryableCollection } from "../../src/sharepoint/queryable";
 
 describe("QueryableInstance", () => {
 

@@ -1,7 +1,7 @@
 
 
 import { expect } from "chai";
-import { QuickLaunch } from "../../src/sharepoint/quickLaunch";
+import { QuickLaunch } from "../../src/sharepoint/quicklaunch";
 import { toMatchEndRegex } from "../testutils";
 
 describe("QuickLaunch", () => {

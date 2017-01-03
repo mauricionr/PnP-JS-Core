@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ContentTypes, ContentType } from "../../src/sharepoint/ContentTypes";
+import { ContentTypes, ContentType } from "../../src/sharepoint/contenttypes";
 import pnp from "../../src/pnp";
 import { testSettings } from "../test-config.test";
 import { toMatchEndRegex } from "../testutils";

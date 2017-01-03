@@ -39,7 +39,7 @@ export class Site extends QueryableInstance {
      * Gets the context information for the site.
      */
     public getContextInfo(): Promise<ContextInfo> {
-        let q = new Site("", "_api/contextinfo");
+        let q = new Site(this.parentUrl, "_api/contextinfo");
         return q.post().then(data => {
             if (data.hasOwnProperty("GetContextWebInformation")) {
                 let info = data.GetContextWebInformation;

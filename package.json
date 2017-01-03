@@ -1,6 +1,6 @@
 {
   "name": "sp-pnp-js",
-  "version": "1.9.6",
+  "version": "2.0.0",
   "description": "A JavaScript library for SharePoint development.",
   "main": "./lib/pnp.js",
   "typings": "./lib/pnp",

@@ -25,6 +25,7 @@ export {
 export {
     ItemAddResult,
     ItemUpdateResult,
+    ItemUpdateResultData,
     PagedItemCollection
 } from "./items";
 

@@ -4,7 +4,7 @@ import { FetchOptions, HttpClient } from "../net/httpclient";
 import { ODataParser, ODataDefaultParser, ODataBatch } from "./odata";
 import { ICachingOptions, CachingParserWrapper, CachingOptions } from "./caching";
 import { RuntimeConfig } from "../configuration/pnplibconfig";
-import { ProcessHttpClientResponseException, AlreadyInBatchException } from "../utils/exceptions";
+import { AlreadyInBatchException } from "../utils/exceptions";
 
 export interface QueryableConstructor<T> {
     new (baseUrl: string | Queryable, path?: string): T;
@@ -271,9 +271,7 @@ export class Queryable {
 
             // we are not part of a batch, so proceed as normal
             let client = new HttpClient();
-            return client.get(this.toUrlAndQuery(), getOptions).then((response) => {
-                return this.processHttpClientResponse(response, parser);
-            });
+            return client.get(this.toUrlAndQuery(), getOptions).then((response) => parser.parse(response));
 
         } else {
 
@@ -287,9 +285,7 @@ export class Queryable {
 
             // we are not part of a batch, so proceed as normal
             let client = new HttpClient();
-            return client.post(this.toUrlAndQuery(), postOptions).then((response) => {
-                return this.processHttpClientResponse(response, parser);
-            });
+            return client.post(this.toUrlAndQuery(), postOptions).then((response) => parser.parse(response));
 
         } else {
             return this._batch.add(this.toUrlAndQuery(), "POST", postOptions, parser);
@@ -302,9 +298,7 @@ export class Queryable {
 
             // we are not part of a batch, so proceed as normal
             let client = new HttpClient();
-            return client.patch(this.toUrlAndQuery(), patchOptions).then((response) => {
-                return this.processHttpClientResponse(response, parser);
-            });
+            return client.patch(this.toUrlAndQuery(), patchOptions).then((response) => parser.parse(response));
 
         } else {
             return this._batch.add(this.toUrlAndQuery(), "PATCH", patchOptions, parser);
@@ -317,41 +311,11 @@ export class Queryable {
 
             // we are not part of a batch, so proceed as normal
             let client = new HttpClient();
-            return client.delete(this.toUrlAndQuery(), deleteOptions).then((response) => {
-                return this.processHttpClientResponse(response, parser);
-            });
+            return client.delete(this.toUrlAndQuery(), deleteOptions).then((response) => parser.parse(response));
 
         } else {
             return this._batch.add(this.toUrlAndQuery(), "DELETE", deleteOptions, parser);
         }
-    }
-
-    private processHttpClientResponse<T>(response: Response, parser: ODataParser<T>): Promise<T> {
-
-        return new Promise<T>((resolve, reject) => {
-
-            // 200 = OK (get, delete)
-            // 201 = Created (create)
-            // 204 = No Content (update)
-            if (response.ok) {
-
-                if ((response.headers.has("Content-Length") && parseFloat(response.headers.get("Content-Length")) === 0)
-                    || response.status === 204) {
-
-                    // in these cases the server has returned no content, so we create an empty object
-                    // this was done because the fetch browser methods throw exceptions with no content
-                    return resolve(<T>{});
-                }
-
-                // pipe our parsed content
-                return resolve(parser.parse(response));
-
-            } else {
-
-                // and reject with the below message.
-                return reject(new ProcessHttpClientResponseException(response));
-            }
-        });
     }
 }
 

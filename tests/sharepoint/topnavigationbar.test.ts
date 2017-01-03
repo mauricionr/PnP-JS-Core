@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { TopNavigationBar } from "../../src/sharepoint/topNavigationBar";
+import { TopNavigationBar } from "../../src/sharepoint/topnavigationbar";
 import { toMatchEndRegex } from "../testutils";
 
 describe("TopNavigationBar", () => {

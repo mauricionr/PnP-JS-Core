@@ -5,6 +5,7 @@ import { HttpClient } from "../net/httpclient";
 import { RuntimeConfig } from "../configuration/pnplibconfig";
 import { TypedHash } from "../collections/collections";
 import { ODataIdException, BatchParseException } from "../utils/exceptions";
+import { ProcessHttpClientResponseException } from "../utils/exceptions";
 
 export function extractOdataId(candidate: any): string {
 
@@ -24,7 +25,26 @@ export interface ODataParser<U> {
 export abstract class ODataParserBase<U> implements ODataParser<U> {
 
     public parse(r: Response): Promise<U> {
-        return r.json().then(json => this.parseODataJSON(json));
+
+        return new Promise<U>((resolve, reject) => {
+
+            if (this.handleError(r, reject)) {
+                if ((r.headers.has("Content-Length") && parseFloat(r.headers.get("Content-Length")) === 0) || r.status === 204) {
+                    resolve(<U>{});
+                } else {
+                    r.json().then(json => resolve(this.parseODataJSON<U>(json)));
+                }
+            }
+        });
+    }
+
+    protected handleError(r: Response, reject: (reason?: any) => void): boolean {
+        if (!r.ok) {
+            r.json().then(json => {
+                reject(new ProcessHttpClientResponseException(r.status, r.statusText, json));
+            });
+        }
+        return r.ok;
     }
 
     protected parseODataJSON<U>(json: any): U {
