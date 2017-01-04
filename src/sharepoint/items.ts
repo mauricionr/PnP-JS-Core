@@ -81,6 +81,38 @@ export class Items extends QueryableCollection {
             return promise;
         });
     }
+
+    /**
+     * Adds many items to the collection
+     *
+     * @param properties The new items's properties
+     */
+    public addMany(properties: Array<Object> = []): Promise<[ItemAddResult]> {
+
+        let removeDependency = this.addBatchDependency();
+
+        let parentList = this.getParent(QueryableInstance);
+
+        return parentList.select("ListItemEntityTypeFullName").getAs<{ ListItemEntityTypeFullName: string }>().then((d) => {
+            let promises = [];
+            
+            promises = properties.map(current => {
+                let postBody = JSON.stringify(Util.extend({
+                    "__metadata": { "type": d.ListItemEntityTypeFullName },
+                }, current));
+                return this.postAs<{ Id: number }>({ body: postBody }).then((data) => {
+                    return {
+                        data: data,
+                        item: this.getById(data.Id),
+                    };
+                })
+            })
+
+            removeDependency();
+
+            return Promise.all(promises)
+        });
+    }
 }
 
 /**
