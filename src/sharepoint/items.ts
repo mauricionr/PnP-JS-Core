@@ -1,12 +1,14 @@
 import { Queryable, QueryableCollection, QueryableInstance } from "./queryable";
 import { QueryableSecurable } from "./queryablesecurable";
 import { Folder } from "./folders";
+import { File } from "./files";
 import { ContentType } from "./contenttypes";
 import { TypedHash } from "../collections/collections";
 import { Util } from "../utils/util";
 import * as Types from "./types";
 import { ODataParserBase } from "./odata";
 import { AttachmentFiles } from "./attachmentfiles";
+import { List } from "./lists";
 
 /**
  * Describes a collection of Item objects
@@ -57,29 +59,41 @@ export class Items extends QueryableCollection {
      *
      * @param properties The new items's properties
      */
-    public add(properties: TypedHash<any> = {}): Promise<ItemAddResult> {
+    public add(properties: TypedHash<any> = {}, listItemEntityTypeFullName: string = null): Promise<ItemAddResult> {
 
-        let removeDependency = this.addBatchDependency();
-
-        let parentList = this.getParent(QueryableInstance);
-
-        return parentList.select("ListItemEntityTypeFullName").getAs<{ ListItemEntityTypeFullName: string }>().then((d) => {
+        let doAdd = (listItemEntityType: string): Promise<ItemAddResult> => {
 
             let postBody = JSON.stringify(Util.extend({
-                "__metadata": { "type": d.ListItemEntityTypeFullName },
+                "__metadata": { "type": listItemEntityType },
             }, properties));
 
-            let promise = this.postAs<{ Id: number }>({ body: postBody }).then((data) => {
+            return this.postAs<{ Id: number }>({ body: postBody }).then((data) => {
                 return {
                     data: data,
                     item: this.getById(data.Id),
                 };
             });
+        };
 
-            removeDependency();
+        if (!listItemEntityTypeFullName) {
 
-            return promise;
-        });
+            let parentList = this.getParent(List);
+
+            let removeDependency = this.addBatchDependency();
+
+            return parentList.getListItemEntityTypeFullName().then(n => {
+
+                let promise = doAdd(n);
+
+                removeDependency();
+
+                return promise;
+            });
+
+        } else {
+
+            return doAdd(listItemEntityTypeFullName);
+        }
     }
 }
 
@@ -159,7 +173,15 @@ export class Item extends QueryableSecurable {
      *
      */
     public get folder(): Folder {
-        return new Folder(this, "Folder");
+        return new Folder(this, "folder");
+    }
+
+    /**
+     * Gets the folder associated with this list item (if this item represents a folder)
+     *
+     */
+    public get file(): File {
+        return new File(this, "file");
     }
 
     /**
@@ -170,32 +192,32 @@ export class Item extends QueryableSecurable {
      */
     public update(properties: TypedHash<any>, eTag = "*"): Promise<ItemUpdateResult> {
 
-        let removeDependency = this.addBatchDependency();
+        return new Promise<ItemUpdateResult>((resolve, reject) => {
 
-        let parentList = this.getParent(QueryableInstance, this.parentUrl.substr(0, this.parentUrl.lastIndexOf("/")));
+            let removeDependency = this.addBatchDependency();
 
-        return parentList.select("ListItemEntityTypeFullName").getAs<{ ListItemEntityTypeFullName: string }>().then((d) => {
+            let parentList = this.getParent(QueryableInstance, this.parentUrl.substr(0, this.parentUrl.lastIndexOf("/")));
 
-            let postBody = JSON.stringify(Util.extend({
-                "__metadata": { "type": d.ListItemEntityTypeFullName },
-            }, properties));
+            parentList.select("ListItemEntityTypeFullName").getAs<{ ListItemEntityTypeFullName: string }>().then((d) => {
 
-            let promise = this.post({
-                body: postBody,
-                headers: {
-                    "IF-Match": eTag,
-                    "X-HTTP-Method": "MERGE",
-                },
-            }).then((data) => {
-                return {
-                    data: data,
-                    item: this,
-                };
-            });
+                let postBody = JSON.stringify(Util.extend({
+                    "__metadata": { "type": d.ListItemEntityTypeFullName },
+                }, properties));
 
-            removeDependency();
-
-            return promise;
+                this.post({
+                    body: postBody,
+                    headers: {
+                        "IF-Match": eTag,
+                        "X-HTTP-Method": "MERGE",
+                    },
+                }, new ItemUpdatedParser()).then((data) => {
+                    removeDependency();
+                    resolve({
+                        data: data,
+                        item: this,
+                    });
+                });
+            }).catch(e => reject(e));
         });
     }
 
@@ -257,7 +279,11 @@ export interface ItemAddResult {
 
 export interface ItemUpdateResult {
     item: Item;
-    data: any;
+    data: ItemUpdateResultData;
+}
+
+export interface ItemUpdateResultData {
+    "odata.etag": string;
 }
 
 /**
@@ -291,9 +317,28 @@ export class PagedItemCollection<T> {
 class PagedItemCollectionParser extends ODataParserBase<PagedItemCollection<any>> {
     public parse(r: Response): Promise<PagedItemCollection<any>> {
 
-        return r.json().then(json => {
-            let nextUrl = json.hasOwnProperty("d") && json.d.hasOwnProperty("__next") ? json.d.__next : json["odata.nextLink"];
-            return new PagedItemCollection(nextUrl, this.parseODataJSON(json));
+        return new Promise<PagedItemCollection<any>>((resolve, reject) => {
+
+            if (this.handleError(r, reject)) {
+                r.json().then(json => {
+                    let nextUrl = json.hasOwnProperty("d") && json.d.hasOwnProperty("__next") ? json.d.__next : json["odata.nextLink"];
+                    resolve(new PagedItemCollection(nextUrl, this.parseODataJSON(json)));
+                });
+            }
+        });
+    }
+}
+
+class ItemUpdatedParser extends ODataParserBase<ItemUpdateResultData> {
+    public parse(r: Response): Promise<ItemUpdateResultData> {
+
+        return new Promise<ItemUpdateResultData>((resolve, reject) => {
+
+            if (this.handleError(r, reject)) {
+                resolve({
+                    "odata.etag": r.headers.get("etag"),
+                });
+            }
         });
     }
 }

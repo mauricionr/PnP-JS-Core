@@ -94,15 +94,15 @@ export class ContentType extends QueryableInstance {
     /**
      * Gets the column (also known as field) references in the content type.
     */
-    public get fieldLinks(): Queryable {
-        return new Queryable(this, "fieldLinks");
+    public get fieldLinks(): FieldLinks {
+        return new FieldLinks(this);
     }
 
     /**
      * Gets a value that specifies the collection of fields for the content type.
      */
-    public get fields(): Queryable {
-        return new Queryable(this, "fields");
+    public get fields(): QueryableCollection {
+        return new QueryableCollection(this, "fields");
     }
 
     /**
@@ -115,12 +115,53 @@ export class ContentType extends QueryableInstance {
     /**
      * Gets a value that specifies the collection of workflow associations for the content type.
      */
-    public get workflowAssociations(): Queryable {
-        return new Queryable(this, "workflowAssociations");
+    public get workflowAssociations(): QueryableCollection {
+        return new QueryableCollection(this, "workflowAssociations");
     }
 }
 
 export interface ContentTypeAddResult {
     contentType: ContentType;
     data: any;
+}
+
+/**
+ * Represents a collection of field link instances
+ */
+export class FieldLinks extends QueryableCollection {
+
+    /**
+     * Creates a new instance of the ContentType class
+     * 
+     * @param baseUrl The url or Queryable which forms the parent of this content type instance
+     */
+    constructor(baseUrl: string | Queryable, path = "fieldlinks") {
+        super(baseUrl, path);
+    }
+
+    /**
+     * Gets a FieldLink by GUID id
+     * 
+     * @param id The GUID id of the field link
+     */
+    public getById(id: string) {
+        let fl = new FieldLink(this);
+        fl.concat(`(guid'${id}')`);
+        return fl;
+    }
+}
+
+/**
+ * Represents a field link instance
+ */
+export class FieldLink extends QueryableInstance {
+
+    /**
+     * Creates a new instance of the ContentType class
+    * 
+    * @param baseUrl The url or Queryable which forms the parent of this content type instance
+    */
+    constructor(baseUrl: string | Queryable, path?: string) {
+        super(baseUrl, path);
+    }
 }

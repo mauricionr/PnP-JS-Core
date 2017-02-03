@@ -5,14 +5,26 @@ describe("Util", () => {
 
     describe("getCtxCallback", () => {
         it("Should create contextual callback", () => {
-            let func = function (a) { this.num = this.num + a; };
-            let ctx = { num: 1 };
-            let callback = Util.getCtxCallback(ctx, func, 7);
+
+            class test {
+                constructor() {
+                    this.num = 1;
+                }
+                public num: number;
+                public func(a: number)  {
+                    this.num += a;
+                }
+            }
+
+            let t = new test();
+
+            let callback = Util.getCtxCallback(t, t.func, 7);
             expect(callback).to.exist;
             expect(callback).to.be.a("function");
             // this call will update ctx var inside the callback
+            expect(t.num).to.eq(1);
             callback();
-            expect(ctx.num).to.eq(8);
+            expect(t.num).to.eq(8);
         });
     });
 

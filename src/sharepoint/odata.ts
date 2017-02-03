@@ -5,6 +5,7 @@ import { HttpClient } from "../net/httpclient";
 import { RuntimeConfig } from "../configuration/pnplibconfig";
 import { TypedHash } from "../collections/collections";
 import { ODataIdException, BatchParseException } from "../utils/exceptions";
+import { ProcessHttpClientResponseException } from "../utils/exceptions";
 
 export function extractOdataId(candidate: any): string {
 
@@ -24,7 +25,26 @@ export interface ODataParser<U> {
 export abstract class ODataParserBase<U> implements ODataParser<U> {
 
     public parse(r: Response): Promise<U> {
-        return r.json().then(json => this.parseODataJSON(json));
+
+        return new Promise<U>((resolve, reject) => {
+
+            if (this.handleError(r, reject)) {
+                if ((r.headers.has("Content-Length") && parseFloat(r.headers.get("Content-Length")) === 0) || r.status === 204) {
+                    resolve(<U>{});
+                } else {
+                    r.json().then(json => resolve(this.parseODataJSON<U>(json)));
+                }
+            }
+        });
+    }
+
+    protected handleError(r: Response, reject: (reason?: any) => void): boolean {
+        if (!r.ok) {
+            r.json().then(json => {
+                reject(new ProcessHttpClientResponseException(r.status, r.statusText, json));
+            });
+        }
+        return r.ok;
     }
 
     protected parseODataJSON<U>(json: any): U {
@@ -188,121 +208,129 @@ export class ODataBatch {
             return Promise.resolve();
         }
 
-        // build all the requests, send them, pipe results in order to parsers
-        let batchBody: string[] = [];
-
-        let currentChangeSetId = "";
-
-        this._requests.map((reqInfo) => {
-
-            if (reqInfo.method === "GET") {
-
-                if (currentChangeSetId.length > 0) {
-                    // end an existing change set
-                    batchBody.push(`--changeset_${currentChangeSetId}--\n\n`);
-                    currentChangeSetId = "";
-                }
-
-                batchBody.push(`--batch_${this._batchId}\n`);
-
-            } else {
-
-                if (currentChangeSetId.length < 1) {
-                    // start new change set
-                    currentChangeSetId = Util.getGUID();
-                    batchBody.push(`--batch_${this._batchId}\n`);
-                    batchBody.push(`Content-Type: multipart/mixed; boundary="changeset_${currentChangeSetId}"\n\n`);
-                }
-
-                batchBody.push(`--changeset_${currentChangeSetId}\n`);
-            }
-
-            // common batch part prefix
-            batchBody.push(`Content-Type: application/http\n`);
-            batchBody.push(`Content-Transfer-Encoding: binary\n\n`);
-
-            let headers: TypedHash<string> = {
-                "Accept": "application/json;",
-            };
-
-            if (reqInfo.method !== "GET") {
-
-                let method = reqInfo.method;
-
-                if (reqInfo.hasOwnProperty("options") && reqInfo.options.hasOwnProperty("headers") && typeof reqInfo.options.headers["X-HTTP-Method"] !== "undefined") {
-                    method = reqInfo.options.headers["X-HTTP-Method"];
-                    delete reqInfo.options.headers["X-HTTP-Method"];
-                }
-
-                batchBody.push(`${method} ${reqInfo.url} HTTP/1.1\n`);
-
-                headers = Util.extend(headers, { "Content-Type": "application/json;odata=verbose;charset=utf-8" });
-
-            } else {
-                batchBody.push(`${reqInfo.method} ${reqInfo.url} HTTP/1.1\n`);
-            }
-
-            if (typeof RuntimeConfig.headers !== "undefined") {
-                headers = Util.extend(headers, RuntimeConfig.headers);
-            }
-
-            if (reqInfo.options && reqInfo.options.headers) {
-                headers = Util.extend(headers, reqInfo.options.headers);
-            }
-
-            for (let name in headers) {
-                if (headers.hasOwnProperty(name)) {
-                    batchBody.push(`${name}: ${headers[name]}\n`);
-                }
-            }
-
-            batchBody.push("\n");
-
-            if (reqInfo.options.body) {
-                batchBody.push(`${reqInfo.options.body}\n\n`);
-            }
-        });
-
-        if (currentChangeSetId.length > 0) {
-            // Close the changeset
-            batchBody.push(`--changeset_${currentChangeSetId}--\n\n`);
-            currentChangeSetId = "";
-        }
-
-        batchBody.push(`--batch_${this._batchId}--\n`);
-
-        let batchHeaders: TypedHash<string> = {
-            "Content-Type": `multipart/mixed; boundary=batch_${this._batchId}`,
-        };
-
-        let batchOptions = {
-            "body": batchBody.join(""),
-            "headers": batchHeaders,
-        };
-
+        // creating the client here allows the url to be populated for nodejs client as well as potentially
+        // any other hacks needed for other types of clients. Essentially allows the absoluteRequestUrl
+        // below to be correct
         let client = new HttpClient();
-        let requestUrl = Util.makeUrlAbsolute(Util.combinePaths(this.baseUrl, "/_api/$batch"));
-        return client.post(requestUrl, batchOptions)
-            .then(r => r.text())
-            .then(this._parseResponse)
-            .then((responses: Response[]) => {
 
-                if (responses.length !== this._requests.length) {
-                    throw new BatchParseException("Could not properly parse responses to match requests in batch.");
-                }
+        // due to timing we need to get the absolute url here so we can use it for all the individual requests
+        // and for sending the entire batch
+        return Util.toAbsoluteUrl(this.baseUrl).then(absoluteRequestUrl => {
 
-                return responses.reduce((chain, response, index) => {
+            // build all the requests, send them, pipe results in order to parsers
+            let batchBody: string[] = [];
 
-                    let request = this._requests[index];
+            let currentChangeSetId = "";
 
-                    if (!response.ok) {
-                        request.reject(new Error(response.statusText));
+            this._requests.map((reqInfo) => {
+
+                if (reqInfo.method === "GET") {
+
+                    if (currentChangeSetId.length > 0) {
+                        // end an existing change set
+                        batchBody.push(`--changeset_${currentChangeSetId}--\n\n`);
+                        currentChangeSetId = "";
                     }
 
-                    return chain.then(_ => request.parser.parse(response).then(request.resolve).catch(request.reject));
+                    batchBody.push(`--batch_${this._batchId}\n`);
 
-                }, Promise.resolve());
+                } else {
+
+                    if (currentChangeSetId.length < 1) {
+                        // start new change set
+                        currentChangeSetId = Util.getGUID();
+                        batchBody.push(`--batch_${this._batchId}\n`);
+                        batchBody.push(`Content-Type: multipart/mixed; boundary="changeset_${currentChangeSetId}"\n\n`);
+                    }
+
+                    batchBody.push(`--changeset_${currentChangeSetId}\n`);
+                }
+
+                // common batch part prefix
+                batchBody.push(`Content-Type: application/http\n`);
+                batchBody.push(`Content-Transfer-Encoding: binary\n\n`);
+
+                let headers: TypedHash<string> = {
+                    "Accept": "application/json;",
+                };
+
+                if (reqInfo.method !== "GET") {
+
+                    let method = reqInfo.method;
+
+                    if (reqInfo.hasOwnProperty("options") && reqInfo.options.hasOwnProperty("headers") && typeof reqInfo.options.headers["X-HTTP-Method"] !== "undefined") {
+                        method = reqInfo.options.headers["X-HTTP-Method"];
+                        delete reqInfo.options.headers["X-HTTP-Method"];
+                    }
+
+                    batchBody.push(`${method} ${Util.combinePaths(absoluteRequestUrl, reqInfo.url)} HTTP/1.1\n`);
+
+                    headers = Util.extend(headers, { "Content-Type": "application/json;odata=verbose;charset=utf-8" });
+
+                } else {
+                    batchBody.push(`${reqInfo.method} ${Util.combinePaths(absoluteRequestUrl, reqInfo.url)} HTTP/1.1\n`);
+                }
+
+                if (typeof RuntimeConfig.headers !== "undefined") {
+                    headers = Util.extend(headers, RuntimeConfig.headers);
+                }
+
+                if (reqInfo.options && reqInfo.options.headers) {
+                    headers = Util.extend(headers, reqInfo.options.headers);
+                }
+
+                for (let name in headers) {
+                    if (headers.hasOwnProperty(name)) {
+                        batchBody.push(`${name}: ${headers[name]}\n`);
+                    }
+                }
+
+                batchBody.push("\n");
+
+                if (reqInfo.options.body) {
+                    batchBody.push(`${reqInfo.options.body}\n\n`);
+                }
             });
+
+            if (currentChangeSetId.length > 0) {
+                // Close the changeset
+                batchBody.push(`--changeset_${currentChangeSetId}--\n\n`);
+                currentChangeSetId = "";
+            }
+
+            batchBody.push(`--batch_${this._batchId}--\n`);
+
+            let batchHeaders: TypedHash<string> = {
+                "Content-Type": `multipart/mixed; boundary=batch_${this._batchId}`,
+            };
+
+            let batchOptions = {
+                "body": batchBody.join(""),
+                "headers": batchHeaders,
+            };
+
+            return client.post(Util.combinePaths(absoluteRequestUrl, "/_api/$batch"), batchOptions)
+                .then(r => r.text())
+                .then(this._parseResponse)
+                .then((responses: Response[]) => {
+
+                    if (responses.length !== this._requests.length) {
+                        throw new BatchParseException("Could not properly parse responses to match requests in batch.");
+                    }
+
+                    return responses.reduce((chain, response, index) => {
+
+                        let request = this._requests[index];
+
+                        if (!response.ok) {
+                            request.reject(new Error(response.statusText));
+                        }
+
+                        return chain.then(_ => request.parser.parse(response).then(request.resolve).catch(request.reject));
+
+                    }, Promise.resolve());
+                });
+        });
     }
 
     /**

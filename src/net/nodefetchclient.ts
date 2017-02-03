@@ -29,6 +29,9 @@ export class NodeFetchClient implements HttpClientImpl {
         global.Headers = nodeFetch.Headers;
         global.Request = nodeFetch.Request;
         global.Response = nodeFetch.Response;
+        global._spPageContextInfo = {
+            webAbsoluteUrl: siteUrl,
+        };
     }
 
     public fetch(url: string, options: any): Promise<Response> {
@@ -48,34 +51,37 @@ export class NodeFetchClient implements HttpClientImpl {
      */
     public getAddInOnlyAccessToken(): Promise<AuthToken> {
 
-        if (this.token !== null && new Date() < this.toDate(this.token.expires_on)) {
-            return new Promise<AuthToken>(r => r(this.token));
-        }
+        return new Promise<AuthToken>((resolve, reject) => {
 
-        return this.getRealm().then(realm => {
+            if (this.token !== null && new Date() < this.toDate(this.token.expires_on)) {
+                resolve(this.token);
+            } else {
+                this.getRealm().then((realm: string) => {
 
-            let resource = this.getFormattedPrincipal(NodeFetchClient.SharePointServicePrincipal, u.parse(this.siteUrl).hostname, realm);
-            let formattedClientId = this.getFormattedPrincipal(this._clientId, "", realm);
+                    let resource = this.getFormattedPrincipal(NodeFetchClient.SharePointServicePrincipal, u.parse(this.siteUrl).hostname, realm);
+                    let formattedClientId = this.getFormattedPrincipal(this._clientId, "", realm);
 
-            return this.getAuthUrl(realm).then((authUrl: string) => {
+                    this.getAuthUrl(realm).then((authUrl: string) => {
 
-                let body: string[] = [];
-                body.push("grant_type=client_credentials");
-                body.push(`client_id=${formattedClientId}`);
-                body.push(`client_secret=${encodeURIComponent(this._clientSecret)}`);
-                body.push(`resource=${resource}`);
+                        let body: string[] = [];
+                        body.push("grant_type=client_credentials");
+                        body.push(`client_id=${formattedClientId}`);
+                        body.push(`client_secret=${encodeURIComponent(this._clientSecret)}`);
+                        body.push(`resource=${resource}`);
 
-                return nodeFetch(authUrl, {
-                    body: body.join("&"),
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    method: "POST",
-                }).then((r: Response) => r.json()).then((tok: AuthToken) => {
-                    this.token = tok;
-                    return this.token;
-                });
-            });
+                        nodeFetch(authUrl, {
+                            body: body.join("&"),
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded",
+                            },
+                            method: "POST",
+                        }).then((r: Response) => r.json()).then((tok: AuthToken) => {
+                            this.token = tok;
+                            resolve(this.token);
+                        });
+                    });
+                }).catch(e => reject(e));
+            }
         });
     }
 

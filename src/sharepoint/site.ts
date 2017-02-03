@@ -3,6 +3,7 @@ import { Web } from "./webs";
 import { UserCustomActions } from "./usercustomactions";
 import { ContextInfo, DocumentLibraryInformation } from "./types";
 import { ODataBatch } from "./odata";
+import { Features } from "./features";
 
 /**
  * Describes a site collection
@@ -28,6 +29,14 @@ export class Site extends QueryableInstance {
     }
 
     /**
+     * Gets the active features for this site
+     * 
+     */
+    public get features(): Features {
+        return new Features(this);
+    }
+
+    /**
      * Get all custom actions on a site collection
      * 
      */
@@ -39,7 +48,7 @@ export class Site extends QueryableInstance {
      * Gets the context information for the site.
      */
     public getContextInfo(): Promise<ContextInfo> {
-        let q = new Site("", "_api/contextinfo");
+        let q = new Site(this.parentUrl, "_api/contextinfo");
         return q.post().then(data => {
             if (data.hasOwnProperty("GetContextWebInformation")) {
                 let info = data.GetContextWebInformation;

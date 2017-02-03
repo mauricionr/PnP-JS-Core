@@ -15,6 +15,7 @@ import { List } from "./lists";
 import { SiteUsers, SiteUser, CurrentUser } from "./siteusers";
 import { UserCustomActions } from "./usercustomactions";
 import { extractOdataId, ODataBatch } from "./odata";
+import { Features } from "./features";
 
 
 export class Webs extends QueryableCollection {
@@ -62,7 +63,7 @@ export class Webs extends QueryableCollection {
         return q.post({ body: postBody }).then((data) => {
             return {
                 data: data,
-                web: new Web(extractOdataId(data), ""),
+                web: new Web(extractOdataId(data).replace(/_api\/web\/?/i, "")),
             };
         });
     }
@@ -105,6 +106,14 @@ export class Web extends QueryableSecurable {
      */
     public get fields(): Fields {
         return new Fields(this);
+    }
+
+    /**
+     * Gets the active features for this web
+     * 
+     */
+    public get features(): Features {
+        return new Features(this);
     }
 
     /**
@@ -314,7 +323,6 @@ export class Web extends QueryableSecurable {
      * @param type The gallery type - WebTemplateCatalog = 111, WebPartCatalog = 113 ListTemplateCatalog = 114,
      * MasterPageCatalog = 116, SolutionCatalog = 121, ThemeCatalog = 123, DesignCatalog = 124, AppDataCatalog = 125
      */
-    /* tslint:disable member-access */
     public getCatalog(type: number): Promise<List> {
         let q = new Web(this, `getcatalog(${type})`);
         q.select("Id");
@@ -322,7 +330,6 @@ export class Web extends QueryableSecurable {
             return new List(extractOdataId(data));
         });
     }
-    /* tslint:enable */
 
     /**
      * Returns the collection of changes from the change log that have occurred within the list, based on the specified query.

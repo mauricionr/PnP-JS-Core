@@ -1,6 +1,5 @@
 import { Queryable, QueryableCollection, QueryableInstance } from "./queryable";
 import { Files } from "./files";
-import { Item } from "./items";
 
 /**
  * Describes a collection of Folder objects
@@ -91,11 +90,11 @@ export class Folder extends QueryableInstance {
     }
 
     /**
-     * Gets this folder's list item
+     * Gets this folder's list item field values
      * 
      */
-    public get listItemAllFields(): Item {
-        return new Item(this, "listItemAllFields");
+    public get listItemAllFields(): QueryableCollection {
+        return new QueryableCollection(this, "listItemAllFields");
     }
 
     /**

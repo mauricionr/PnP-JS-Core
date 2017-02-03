@@ -16,8 +16,7 @@ export class QueryableSecurable extends QueryableInstance {
      * 
      */
     public get firstUniqueAncestorSecurableObject(): QueryableInstance {
-        this.append("FirstUniqueAncestorSecurableObject");
-        return new QueryableInstance(this);
+        return new QueryableInstance(this, "FirstUniqueAncestorSecurableObject");
     }
 
     /**
@@ -26,9 +25,9 @@ export class QueryableSecurable extends QueryableInstance {
      * @param loginName The claims username for the user (ex: i:0#.f|membership|user@domain.com)
      */
     public getUserEffectivePermissions(loginName: string): Queryable {
-        this.append("getUserEffectivePermissions(@user)");
-        this._query.add("@user", "'" + encodeURIComponent(loginName) + "'");
-        return new Queryable(this);
+        let perms = new Queryable(this, "getUserEffectivePermissions(@user)");
+        perms.query.add("@user", "'" + encodeURIComponent(loginName) + "'");
+        return perms;
     }
 
     /**

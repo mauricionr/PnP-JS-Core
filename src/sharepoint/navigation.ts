@@ -1,6 +1,126 @@
-import { Queryable } from "./queryable";
-import { QuickLaunch } from "./quicklaunch";
-import { TopNavigationBar } from "./topnavigationbar";
+import { Util } from "../utils/util";
+import { TypedHash } from "../collections/collections";
+import { Queryable, QueryableInstance, QueryableCollection } from "./queryable";
+
+export interface NavigationNodeAddResult {
+    data: any;
+    node: NavigationNode;
+}
+
+export interface NavigationNodeUpdateResult {
+    data: any;
+    node: NavigationNode;
+}
+
+/**
+ * Represents a collection of navigation nodes
+ * 
+ */
+export class NavigationNodes extends QueryableCollection {
+
+    constructor(baseUrl: string | Queryable, path?: string) {
+        super(baseUrl, path);
+    }
+
+    /**
+     * Gets a navigation node by id
+     * 
+     * @param id The id of the node
+     */
+    public getById(id: number): NavigationNode {
+        let node = new NavigationNode(this);
+        node.concat(`(${id})`);
+        return node;
+    }
+
+    /**
+     * Adds a new node to the collection
+     * 
+     * @param title Display name of the node
+     * @param url The url of the node
+     * @param visible If true the node is visible, otherwise it is hidden (default: true)
+     */
+    public add(title: string, url: string, visible = true): Promise<NavigationNodeAddResult> {
+
+        let postBody = JSON.stringify({
+            "__metadata": { "type": "SP.NavigationNode" },
+            IsVisible: visible,
+            Title: title,
+            Url: url,
+        });
+
+        let adder = new NavigationNodes(this);
+        return adder.post({ body: postBody }).then((data) => {
+            return {
+                data: data,
+                node: this.getById(data.Id),
+            };
+        });
+    }
+
+    /**
+     * Moves a node to be after another node in the navigation
+     * 
+     * @param nodeId Id of the node to move
+     * @param previousNodeId Id of the node after which we move the node specified by nodeId
+     */
+    public moveAfter(nodeId: number, previousNodeId: number): Promise<void> {
+
+        let postBody = JSON.stringify({
+            nodeId: nodeId,
+            previousNodeId: previousNodeId,
+        });
+
+        let mover = new NavigationNodes(this, "MoveAfter");
+        return mover.post({ body: postBody });
+    }
+}
+
+export class NavigationNode extends QueryableInstance {
+
+    constructor(baseUrl: string | Queryable, path?: string) {
+        super(baseUrl, path);
+    }
+
+    /**
+     * Represents the child nodes of this node
+     */
+    public get children(): NavigationNodes {
+        return new NavigationNodes(this, "Children");
+    }
+
+    /**
+     * Updates this node based on the supplied properties
+     * 
+     * @param properties The hash of key/value pairs to update
+     */
+    public update(properties: TypedHash<boolean | string | number>): Promise<NavigationNodeUpdateResult> {
+
+        let postBody = JSON.stringify(Util.extend({
+            "__metadata": { "type": "SP.NavigationNode" },
+        }, properties));
+
+        return this.post({
+            body: postBody,
+            headers: {
+                "X-HTTP-Method": "MERGE",
+            },
+        }).then((data) => {
+            return {
+                data: data,
+                node: this,
+            };
+        });
+    }
+
+    /**
+     * Deletes this node and any child nodes
+     */
+    public delete(): Promise<void> {
+        return super.delete();
+    }
+}
+
 
 /**
  * Exposes the navigation components
@@ -13,23 +133,24 @@ export class Navigation extends Queryable {
      * 
      * @param baseUrl The url or Queryable which forms the parent of this fields collection
      */
-    constructor(baseUrl: string | Queryable) {
-        super(baseUrl, "navigation");
+    constructor(baseUrl: string | Queryable, path = "navigation") {
+        super(baseUrl, path);
     }
 
     /**
      * Gets the quicklaunch navigation for the current context
      * 
      */
-    public get quicklaunch(): QuickLaunch {
-        return new QuickLaunch(this);
+    public get quicklaunch(): NavigationNodes {
+        return new NavigationNodes(this, "quicklaunch");
     }
 
     /**
      * Gets the top bar navigation navigation for the current context
      * 
      */
-    public get topNavigationBar(): TopNavigationBar {
-        return new TopNavigationBar(this);
+    public get topNavigationBar(): NavigationNodes {
+        return new NavigationNodes(this, "topnavigationbar");
     }
 }
+

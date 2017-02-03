@@ -8,7 +8,7 @@ settings.js
 settings.example.js
 tsconfig.json
 tslint.json
-typings.json
+jsdoc.json
 webpack.config.js
 webpack-serve.config.js
 .vscode/

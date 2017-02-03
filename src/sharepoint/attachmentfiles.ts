@@ -33,7 +33,7 @@ export class AttachmentFiles extends QueryableCollection {
      * @param name The name of the file, including extension.
      * @param content The Base64 file content.
      */
-    public add(name: string, content: string): Promise<AttachmentFileAddResult> {
+    public add(name: string, content: string | Blob | ArrayBuffer): Promise<AttachmentFileAddResult> {
         return new AttachmentFiles(this, `add(FileName='${name}')`)
             .post({
                 body: content,
@@ -47,7 +47,7 @@ export class AttachmentFiles extends QueryableCollection {
 }
 
 /**
- * Descrines a single attachment file instance
+ * Describes a single attachment file instance
  *
  */
 export class AttachmentFile extends QueryableInstance {
@@ -93,6 +93,23 @@ export class AttachmentFile extends QueryableInstance {
     public getJSON(): Promise<any> {
 
         return new AttachmentFile(this, "$value").get(new JSONFileParser());
+    }
+
+    /**
+     * Sets the content of a file
+     * 
+     * @param content The value to set for the file contents
+     */
+    public setContent(content: string | ArrayBuffer | Blob): Promise<AttachmentFile> {
+
+        let setter = new AttachmentFile(this, "$value");
+
+        return setter.post({
+            body: content,
+            headers: {
+                "X-HTTP-Method": "PUT",
+            },
+        }).then(_ => new AttachmentFile(this));
     }
 
     /**

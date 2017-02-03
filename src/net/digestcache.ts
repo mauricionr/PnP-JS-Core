@@ -35,7 +35,7 @@ export class DigestCache {
         }).then((response) => {
             let parser = new ODataDefaultParser();
             return parser.parse(response).then((d: any) => d.GetContextWebInformation);
-        }).then((data) => {
+        }).then((data: any) => {
             let newCachedDigest = new CachedDigest();
             newCachedDigest.value = data.FormDigestValue;
             let seconds = data.FormDigestTimeoutSeconds;

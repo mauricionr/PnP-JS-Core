@@ -1,29 +1,7 @@
 import { Queryable, QueryableInstance, QueryableCollection } from "./queryable";
 import { SiteGroups } from "./sitegroups";
 import { Util } from "../utils/util";
-import { UserIdInfo, PrincipalType } from "./types";
-
-/**
- * Properties that provide a getter, but no setter.
- *
- */
-export interface UserReadOnlyProperties {
-    id?: number;
-    isHiddenInUI?: boolean;
-    loginName?: string;
-    principalType?: PrincipalType;
-    userIdInfo?: UserIdInfo;
-}
-
-/**
- * Properties that provide both a getter, and a setter.
- *
- */
-export interface UserWriteableProperties {
-    isSiteAdmin?: string;
-    email?: string;
-    title?: string;
-}
+import { TypedHash } from "../collections/collections";
 
 /**
  * Properties that provide both a getter, and a setter.
@@ -33,11 +11,6 @@ export interface UserUpdateResult {
     user: SiteUser;
     data: any;
 }
-
-export interface UserProps extends UserReadOnlyProperties, UserWriteableProperties {
-    __metadata: { id?: string, url?: string, type?: string };
-}
-
 
 /**
  * Describes a collection of all site collection users
@@ -89,7 +62,7 @@ export class SiteUsers extends QueryableCollection {
      *
      * @param id The id of the user
      */
-    public removeById(id: number | Queryable): Promise<void> {
+    public removeById(id: number | Queryable): Promise<any> {
         let o = new SiteUsers(this, `removeById(${id})`);
         return o.post();
     }
@@ -148,7 +121,7 @@ export class SiteUser extends QueryableInstance {
     *
     * @param properties A plain object of property names and values to update for the user
     */
-    public update(properties: UserWriteableProperties): Promise<UserUpdateResult> {
+    public update(properties: TypedHash<any>): Promise<UserUpdateResult> {
 
         let postBody = Util.extend({ "__metadata": { "type": "SP.User" } }, properties);
 

@@ -1,14 +1,11 @@
-import { FetchClient } from "./fetchclient";
 import { DigestCache } from "./digestcache";
 import { Util } from "../utils/util";
 import { RuntimeConfig } from "../configuration/pnplibconfig";
-import { SPRequestExecutorClient } from "./sprequestexecutorclient";
-import { NodeFetchClient } from "./nodefetchclient";
 import { APIUrlException } from "../utils/exceptions";
 
 export interface FetchOptions {
     method?: string;
-    headers?: HeadersInit | { [index: string]: string };
+    headers?: string[][] | { [key: string]: string };
     body?: BodyInit;
     mode?: string | RequestMode;
     credentials?: string | RequestCredentials;
@@ -21,7 +18,7 @@ export class HttpClient {
     private _impl: HttpClientImpl;
 
     constructor() {
-        this._impl = this.getFetchImpl();
+        this._impl = RuntimeConfig.fetchClientFactory();
         this._digestCache = new DigestCache(this);
     }
 
@@ -138,17 +135,6 @@ export class HttpClient {
         return this.fetch(url, opts);
     }
 
-    protected getFetchImpl(): HttpClientImpl {
-        if (RuntimeConfig.useSPRequestExecutor) {
-            return new SPRequestExecutorClient();
-        } else if (RuntimeConfig.useNodeFetchClient) {
-            let opts = RuntimeConfig.nodeRequestOptions;
-            return new NodeFetchClient(opts.siteUrl, opts.clientId, opts.clientSecret);
-        } else {
-            return new FetchClient();
-        }
-    }
-
     private mergeHeaders(target: Headers, source: any): void {
         if (typeof source !== "undefined" && source !== null) {
             let temp = <any>new Request("", { headers: source });
@@ -168,5 +154,5 @@ interface RetryContext {
 };
 
 export interface HttpClientImpl {
-    fetch(url: string, options: any): Promise<Response>;
+    fetch(url: string, options: FetchOptions): Promise<Response>;
 }

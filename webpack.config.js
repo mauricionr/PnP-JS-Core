@@ -18,7 +18,7 @@ module.exports = [{
         extensions: ['', '.js']
     },
     plugins: [
-        new webpack.NormalModuleReplacementPlugin(/\.\/nodefetchclient/, "./nodefetchclientbrowser"),
+        new webpack.NormalModuleReplacementPlugin(/\.\.\/net\/nodefetchclient/, "../net/nodefetchclientbrowser"),
         new webpack.BannerPlugin(config.header, { entryOnly: true, raw: true })
     ],
     module: {
@@ -43,7 +43,7 @@ module.exports = [{
         extensions: ['', '.js']
     },
     plugins: [
-        new webpack.NormalModuleReplacementPlugin(/\.\/nodefetchclient/, "./nodefetchclientbrowser"),
+        new webpack.NormalModuleReplacementPlugin(/\.\.\/net\/nodefetchclient/, "../net/nodefetchclientbrowser"),
         new webpack.BannerPlugin(config.header, { entryOnly: true, raw: true }),
         new webpack.DefinePlugin({
             "process.env": {

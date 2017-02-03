@@ -1,8 +1,8 @@
 import { Queryable, QueryableCollection, QueryableInstance } from "./queryable";
-import { Item } from "./items";
 import { TextFileParser, BlobFileParser, JSONFileParser, BufferFileParser } from "./odata";
 import { Util } from "../utils/util";
 import { MaxCommentLengthException } from "../utils/exceptions";
+import { LimitedWebPartManager } from "./webparts";
 
 export interface ChunkedFileUploadProgressData {
     stage: "starting" | "continue" | "finishing";
@@ -123,8 +123,8 @@ export class File extends QueryableInstance {
      * Gets a value that specifies the list item field values for the list item corresponding to the file.
      * 
      */
-    public get listItemAllFields(): Item {
-        return new Item(this, "listItemAllFields");
+    public get listItemAllFields(): QueryableCollection {
+        return new QueryableCollection(this, "listItemAllFields");
     }
 
     /**
@@ -216,8 +216,8 @@ export class File extends QueryableInstance {
      * 
      * @param scope The WebPartsPersonalizationScope view on the Web Parts page.
      */
-    public getLimitedWebPartManager(scope = WebPartsPersonalizationScope.User): Queryable {
-        return new Queryable(this, `getLimitedWebPartManager(scope=${scope})`);
+    public getLimitedWebPartManager(scope = WebPartsPersonalizationScope.Shared): LimitedWebPartManager {
+        return new LimitedWebPartManager(this, `getLimitedWebPartManager(scope=${scope})`);
     }
 
     /**

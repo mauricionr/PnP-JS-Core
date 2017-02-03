@@ -163,11 +163,14 @@ export class UserProfileQuery extends QueryableInstance {
      * @param profilePicSource Blob data representing the user's picture
      */
     public setMyProfilePic(profilePicSource: Blob): Promise<void> {
-        return FileUtil.readBlobAsArrayBuffer(profilePicSource).then((buffer) => {
-            let request = new UserProfileQuery(this, "setmyprofilepicture");
-            return request.post({
-                body: String.fromCharCode.apply(null, new Uint16Array(buffer)),
-            });
+
+        return new Promise<void>((resolve, reject) => {
+            FileUtil.readBlobAsArrayBuffer(profilePicSource).then((buffer) => {
+                let request = new UserProfileQuery(this, "setmyprofilepicture");
+                request.post({
+                    body: String.fromCharCode.apply(null, new Uint16Array(buffer)),
+                }).then(_ => resolve());
+            }).catch(e => reject(e));
         });
     }
 

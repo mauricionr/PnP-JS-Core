@@ -93,7 +93,7 @@ describe("Item", () => {
     });
 
     describe("folder", () => {
-        let path = Util.combinePaths(basePath, "Folder");
+        let path = Util.combinePaths(basePath, "folder");
         it("Should return " + path, () => {
             expect(item.folder.toUrl()).to.match(toMatchEndRegex(path));
         });

@@ -1,5 +1,7 @@
 declare var global: any;
 import { TypedHash } from "../collections/collections";
+import { deprecated } from "./decorators";
+import { SPFxApplicationNotFoundException } from "./exceptions";
 
 export class Util {
 
@@ -225,6 +227,7 @@ export class Util {
      * 
      * @param url The relative url to make absolute
      */
+    @deprecated("The Util.makeUrlAbsolute method is deprecated and will be removed from future releases. Use Util.toAbsoluteUrl instead")
     public static makeUrlAbsolute(url: string): string {
 
         if (Util.isUrlAbsolute(url)) {
@@ -240,5 +243,83 @@ export class Util {
         } else {
             return url;
         }
+    }
+
+    /**
+     * Ensures that a given url is absolute for the current web based on context
+     * 
+     * @param candidateUrl The url to make absolute
+     * 
+     */
+    public static toAbsoluteUrl(candidateUrl: string): Promise<string> {
+
+        return new Promise((resolve, reject) => {
+
+            if (Util.isUrlAbsolute(candidateUrl)) {
+                // if we are already absolute, then just return the url
+                return resolve(candidateUrl);
+            }
+
+            if (typeof global._spPageContextInfo !== "undefined") {
+
+                // operating in classic pages
+                if (global._spPageContextInfo.hasOwnProperty("webAbsoluteUrl")) {
+                    return resolve(Util.combinePaths(global._spPageContextInfo.webAbsoluteUrl, candidateUrl));
+                } else if (global._spPageContextInfo.hasOwnProperty("webServerRelativeUrl")) {
+                    return resolve(Util.combinePaths(global._spPageContextInfo.webServerRelativeUrl, candidateUrl));
+                }
+            }
+
+            // operating in workbench or modern pages
+            // does window.location exist and have _layouts in it?
+            if (typeof global.location !== "undefined") {
+                let index = global.location.toString().toLowerCase().indexOf("/_layouts/");
+                if (index > 0) {
+                    // we are likely in the workbench in /_layouts/
+                    return resolve(Util.combinePaths(global.location.toString().substr(0, index), candidateUrl));
+                }
+            }
+
+            if (this.isSPFxApplication()) {
+
+                return this.getSPFxApplication().then((a: any) => {
+
+                    resolve(Util.combinePaths(a.shell.pageContext.web.absoluteUrl, candidateUrl));
+
+                }).catch(e => { reject(e); });
+            }
+
+            return resolve(candidateUrl);
+        });
+    }
+
+    /**
+     * Determines if the library is executing within an SPFx application
+     */
+    public static isSPFxApplication(): boolean {
+
+        return typeof global.moduleLoaderPromise !== "undefined";
+    }
+
+    /**
+     * If the library is operating in the context of an SPFx webpart or modern page gets the application data
+     * 
+     */
+    public static getSPFxApplication(): Promise<any> {
+
+        return new Promise<any>((resolve, reject) => {
+
+            if (Util.isSPFxApplication()) {
+
+                global.moduleLoaderPromise.then((a: any) => {
+
+                    resolve(a);
+                });
+
+            } else {
+
+                reject(new SPFxApplicationNotFoundException());
+            }
+        });
     }
 }

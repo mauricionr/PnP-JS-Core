@@ -1,45 +1,7 @@
 import { Queryable, QueryableInstance, QueryableCollection } from "./queryable";
-import { SiteUser, SiteUsers } from "./siteusers";
+import { SiteUsers } from "./siteusers";
 import { Util } from "../utils/util";
-
-/**
- * Properties that provide a getter, but no setter.
- *
- */
-export interface GroupReadOnlyProperties {
-    canCurrentUserEditMembership?: boolean;
-    canCurrentUserManageGroup?: boolean;
-    canCurrentUserViewMembership?: boolean;
-    id?: number;
-    isHiddenInUI?: boolean;
-    loginName?: string;
-    ownerTitle?: string;
-    principalType?: PrincipalType;
-    users?: SiteUsers;
-}
-
-/**
- * Properties that provide both a getter, and a setter.
- *
- */
-export interface GroupWriteableProperties {
-    allowMembersEditMembership?: boolean;
-    allowRequestToJoinLeave?: boolean;
-    autoAcceptRequestToJoinLeave?: boolean;
-    description?: string;
-    onlyAllowMembersViewMembership?: boolean;
-    owner?: number | SiteUser | SiteGroup;
-    requestToJoinLeaveEmailSetting?: string;
-    title?: string;
-}
-
-/**
- * Group Properties
- *
- */
-export interface GroupProperties extends GroupReadOnlyProperties, GroupWriteableProperties {
-    __metadata: { id?: string, url?: string, type?: string };
-}
+import { TypedHash } from "../collections/collections";
 
 /**
  * Principal Type enum
@@ -93,7 +55,7 @@ export class SiteGroups extends QueryableCollection {
      *
      * @param props The properties to be updated
      */
-    public add(properties: GroupWriteableProperties): Promise<GroupAddResult> {
+    public add(properties: TypedHash<any>): Promise<GroupAddResult> {
         let postBody = JSON.stringify(Util.extend(
             { "__metadata": { "type": "SP.Group" } }, properties));
 
@@ -175,7 +137,7 @@ export class SiteGroup extends QueryableInstance {
     * @param properties A GroupWriteableProperties object of property names and values to update for the user
     */
     /* tslint:disable no-string-literal */
-    public update(properties: GroupWriteableProperties): Promise<GroupUpdateResult> {
+    public update(properties: TypedHash<any>): Promise<GroupUpdateResult> {
 
         let postBody = Util.extend({ "__metadata": { "type": "SP.Group" } }, properties);
 
@@ -188,8 +150,8 @@ export class SiteGroup extends QueryableInstance {
 
             let retGroup: SiteGroup = this;
 
-            if (properties.hasOwnProperty("title")) {
-                retGroup = this.getParent(SiteGroup, this.parentUrl, `getByName('${properties.title}')`);
+            if (properties.hasOwnProperty("Title")) {
+                retGroup = this.getParent(SiteGroup, this.parentUrl, `getByName('${properties["Title"]}')`);
             }
 
             return {
@@ -203,5 +165,5 @@ export class SiteGroup extends QueryableInstance {
 
 export interface SiteGroupAddResult {
     group: SiteGroup;
-    data: GroupProperties;
+    data: any;
 }

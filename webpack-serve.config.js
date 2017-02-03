@@ -18,11 +18,14 @@ module.exports = {
         extensions: ['', '.ts']
     },
     plugins: [
-        new webpack.NormalModuleReplacementPlugin(/\.\/nodefetchclient/, "./nodefetchclientbrowser"),
+        new webpack.NormalModuleReplacementPlugin(/\.\.\/net\/nodefetchclient/, "../net/nodefetchclientbrowser"),
     ],
     module: {
         loaders: [
-            { test: /\.ts$/, loader: 'babel-loader?presets[]=es2015!ts-loader' },
+            {
+                test: /\.ts$/,
+                loader: 'babel-loader?presets[]=es2015!ts-loader'
+            }
         ]
     }
 };

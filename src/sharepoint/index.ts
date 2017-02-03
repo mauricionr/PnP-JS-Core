@@ -19,16 +19,30 @@ export {
 } from "./files";
 
 export {
+    FeatureAddResult
+} from "./features";
+
+export {
     FolderAddResult
 } from "./folders";
 
 export {
+    Item,
     ItemAddResult,
     ItemUpdateResult,
+    ItemUpdateResultData,
     PagedItemCollection
 } from "./items";
 
 export {
+    NavigationNodeAddResult,
+    NavigationNodeUpdateResult,
+    NavigationNodes,
+    NavigationNode
+} from "./navigation";
+
+export {
+    List,
     ListAddResult,
     ListUpdateResult,
     ListEnsureResult
@@ -85,8 +99,7 @@ export {
 } from "./sitegroups";
 
 export {
-    UserUpdateResult,
-    UserProps
+    UserUpdateResult
 } from "./siteusers";
 
 export {

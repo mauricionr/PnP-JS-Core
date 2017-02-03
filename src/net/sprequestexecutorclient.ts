@@ -21,7 +21,7 @@ export class SPRequestExecutorClient implements HttpClientImpl {
             temp: IteratorResult<[string, string]>;
 
         if (options.headers && options.headers instanceof Headers) {
-            iterator = options.headers.entries();
+            iterator = <IterableIterator<[string, string]>>options.headers.entries();
             temp = iterator.next();
             while (!temp.done) {
                 headers[temp.value[0]] = temp.value[1];

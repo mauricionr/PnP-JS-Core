@@ -40,7 +40,7 @@ export class Lists extends QueryableCollection {
     /**
      * Gets a list from the collection by guid id
      *
-     * @param title The Id of the list
+     * @param id The Id of the list (GUID)
      */
     public getById(id: string): List {
         let list = new List(this);
@@ -57,7 +57,6 @@ export class Lists extends QueryableCollection {
      * @param enableContentTypes If true content types will be allowed and enabled, otherwise they will be disallowed and not enabled
      * @param additionalSettings Will be passed as part of the list creation body
      */
-    /*tslint:disable max-line-length */
     public add(title: string, description = "", template = 100, enableContentTypes = false, additionalSettings: TypedHash<string | number | boolean> = {}): Promise<ListAddResult> {
 
         let postBody = JSON.stringify(Util.extend({
@@ -73,20 +72,22 @@ export class Lists extends QueryableCollection {
             return { data: data, list: this.getByTitle(title) };
         });
     }
-    /*tslint:enable */
 
     /**
-     * Ensures that the specified list exists in the collection (note: settings are not updated if the list exists,
-     * not supported for batching)
+     * Ensures that the specified list exists in the collection (note: this method not supported for batching)
      *
      * @param title The new list's title
      * @param description The new list's description
      * @param template The list template value
      * @param enableContentTypes If true content types will be allowed and enabled, otherwise they will be disallowed and not enabled
-     * @param additionalSettings Will be passed as part of the list creation body
+     * @param additionalSettings Will be passed as part of the list creation body or used to update an existing list
      */
-    /*tslint:disable max-line-length */
-    public ensure(title: string, description = "", template = 100, enableContentTypes = false, additionalSettings: TypedHash<string | number | boolean> = {}): Promise<ListEnsureResult> {
+    public ensure(
+        title: string,
+        description = "",
+        template = 100,
+        enableContentTypes = false,
+        additionalSettings: TypedHash<string | number | boolean> = {}): Promise<ListEnsureResult> {
 
         if (this.hasBatch) {
             throw new NotSupportedInBatchException("The ensure list method");
@@ -96,7 +97,13 @@ export class Lists extends QueryableCollection {
 
             let list: List = this.getByTitle(title);
 
-            list.get().then((d) => resolve({ created: false, data: d, list: list })).catch(() => {
+            list.get().then(_ => {
+
+                list.update(additionalSettings).then(d => {
+                    resolve({ created: false, data: d, list: list });
+                }).catch(e => reject(e));
+
+            }).catch(() => {
 
                 this.add(title, description, template, enableContentTypes, additionalSettings).then((r) => {
                     resolve({ created: true, data: r.data, list: this.getByTitle(title) });
@@ -105,31 +112,26 @@ export class Lists extends QueryableCollection {
             }).catch((e) => reject(e));
         });
     }
-    /*tslint:enable */
 
     /**
      * Gets a list that is the default asset location for images or other files, which the users upload to their wiki pages.
      */
-    /*tslint:disable member-access */
     public ensureSiteAssetsLibrary(): Promise<List> {
         let q = new Lists(this, "ensuresiteassetslibrary");
         return q.post().then((json) => {
             return new List(extractOdataId(json));
         });
     }
-    /*tslint:enable */
 
     /**
      * Gets a list that is the default location for wiki pages.
      */
-    /*tslint:disable member-access */
     public ensureSitePagesLibrary(): Promise<List> {
         let q = new Lists(this, "ensuresitepageslibrary");
         return q.post().then((json) => {
             return new List(extractOdataId(json));
         });
     }
-    /*tslint:enable */
 }
 
 
@@ -419,6 +421,15 @@ export class List extends QueryableSecurable {
                 return data;
             }
         });
+    }
+
+    /**
+     * Returns the ListItemEntityTypeFullName for this list, used when adding/updating list items
+     * 
+     */
+    public getListItemEntityTypeFullName(): Promise<string> {
+        let q = new QueryableInstance(this);
+        return q.select("ListItemEntityTypeFullName").getAs<{ ListItemEntityTypeFullName: string }>().then(o => o.ListItemEntityTypeFullName);
     }
 }
 

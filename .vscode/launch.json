@@ -18,6 +18,7 @@
 				"NODE_ENV": "development"
 			},
 			"console": "internalConsole",
+			"internalConsoleOptions": "openOnSessionStart",
 			"sourceMaps": true,
 			"outFiles": [
 				"${workspaceRoot}/debugging/**/*.js"
@@ -42,7 +43,6 @@
 			},
 			"console": "internalConsole",
 			"sourceMaps": false,
-			"outDir": null
 		},
 		{
 			"name": "Attach",

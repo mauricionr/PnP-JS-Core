@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ContentTypes, ContentType } from "../../src/sharepoint/ContentTypes";
+import { ContentTypes, ContentType } from "../../src/sharepoint/contenttypes";
 import pnp from "../../src/pnp";
 import { testSettings } from "../test-config.test";
 import { toMatchEndRegex } from "../testutils";
@@ -48,7 +48,7 @@ describe("ContentType", () => {
 
     describe("fieldLinks", () => {
         it("Should return _api/web/contenttypes('0x0101000BB1B729DCB7414A9344ED650D3C05B3')/fieldLinks", () => {
-            expect(contentType.fieldLinks.toUrl()).to.match(toMatchEndRegex("_api/web/contenttypes('0x0101000BB1B729DCB7414A9344ED650D3C05B3')/fieldLinks"));
+            expect(contentType.fieldLinks.toUrl()).to.match(toMatchEndRegex("_api/web/contenttypes('0x0101000BB1B729DCB7414A9344ED650D3C05B3')/fieldlinks"));
         });
     });
 

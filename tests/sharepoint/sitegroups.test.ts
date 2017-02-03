@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { SiteGroup, SiteGroups } from "../../src/sharepoint/siteGroups";
+import { SiteGroup, SiteGroups } from "../../src/sharepoint/sitegroups";
 import { toMatchEndRegex } from "../testutils";
 
 describe("SiteGroups", () => {
