@@ -1,5 +1,3 @@
-"use strict";
-
 export enum Locale {
     AfrikaansSouthAfrica = 1078,
     AlbanianAlbania = 1052,

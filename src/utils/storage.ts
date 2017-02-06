@@ -1,5 +1,3 @@
-"use strict";
-
 import { Util } from "./util";
 
 /**
@@ -89,11 +87,7 @@ export class PnPClientStorageWrapper implements PnPClientStore {
             return getter();
         }
 
-        if (!Util.isFunction(getter)) {
-            throw "Function expected for parameter 'getter'.";
-        }
-
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
 
             let o = this.get<T>(key);
 

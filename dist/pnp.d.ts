@@ -1,8 +1,66 @@
-/// <reference types="core-js" />
-/// <reference types="microsoft-ajax" />
 /// <reference types="whatwg-fetch" />
-/// <reference types="chai" />
+declare module "collections/collections" {
+    /**
+     * Interface defining an object with a known property type
+     */
+    export interface TypedHash<T> {
+        [key: string]: T;
+    }
+    /**
+     * Generic dictionary
+     */
+    export class Dictionary<T> {
+        private keys;
+        private values;
+        /**
+         * Creates a new instance of the Dictionary<T> class
+         *
+         * @constructor
+         */
+        constructor(keys?: string[], values?: T[]);
+        /**
+         * Gets a value from the collection using the specified key
+         *
+         * @param key The key whose value we want to return, returns null if the key does not exist
+         */
+        get(key: string): T;
+        /**
+         * Adds the supplied key and value to the dictionary
+         *
+         * @param key The key to add
+         * @param o The value to add
+         */
+        add(key: string, o: T): void;
+        /**
+         * Merges the supplied typed hash into this dictionary instance. Existing values are updated and new ones are created as appropriate.
+         */
+        merge(source: TypedHash<T> | Dictionary<T>): void;
+        /**
+         * Removes a value from the dictionary
+         *
+         * @param key The key of the key/value pair to remove. Returns null if the key was not found.
+         */
+        remove(key: string): T;
+        /**
+         * Returns all the keys currently in the dictionary as an array
+         */
+        getKeys(): string[];
+        /**
+         * Returns all the values currently in the dictionary as an array
+         */
+        getValues(): T[];
+        /**
+         * Clears the current dictionary
+         */
+        clear(): void;
+        /**
+         * Gets a count of the items currently in the dictionary
+         */
+        count(): number;
+    }
+}
 declare module "utils/util" {
+    import { TypedHash } from "collections/collections";
     export class Util {
         /**
          * Gets a callback function which will maintain context across async calls.
@@ -98,14 +156,7 @@ declare module "utils/util" {
          * @param noOverwrite If true existing properties on the target are not overwritten from the source
          *
          */
-        static extend<T, S>(target: T, source: S, noOverwrite?: boolean): T & S;
-        /**
-         * Applies one or more mixins to the supplied target
-         *
-         * @param derivedCtor The classto which we will apply the mixins
-         * @param baseCtors One or more mixin classes to apply
-         */
-        static applyMixins(derivedCtor: any, ...baseCtors: any[]): void;
+        static extend(target: any, source: TypedHash<any>, noOverwrite?: boolean): any;
         /**
          * Determines if a given url is absolute
          *
@@ -232,105 +283,73 @@ declare module "utils/storage" {
         constructor();
     }
 }
-declare module "collections/collections" {
+declare module "configuration/configuration" {
+    import { TypedHash } from "collections/collections";
     /**
-     * Interface defining an object with a known property type
+     * Interface for configuration providers
+     *
      */
-    export interface TypedHash<T> {
-        [key: string]: T;
+    export interface IConfigurationProvider {
+        /**
+         * Gets the configuration from the provider
+         */
+        getConfiguration(): Promise<TypedHash<string>>;
     }
     /**
-     * Generic dictionary
+     * Class used to manage the current application settings
+     *
      */
-    export class Dictionary<T> {
+    export class Settings {
         /**
-         * The array used to store all the keys
+         * The settings currently stored in this instance
          */
-        private keys;
+        private _settings;
         /**
-         * The array used to store all the values
-         */
-        private values;
-        /**
-         * Creates a new instance of the Dictionary<T> class
+         * Creates a new instance of the settings class
          *
          * @constructor
          */
         constructor();
         /**
-         * Gets a value from the collection using the specified key
+         * Adds a new single setting, or overwrites a previous setting with the same key
          *
-         * @param key The key whose value we want to return, returns null if the key does not exist
+         * @param {string} key The key used to store this setting
+         * @param {string} value The setting value to store
          */
-        get(key: string): T;
+        add(key: string, value: string): void;
         /**
-         * Adds the supplied key and value to the dictionary
+         * Adds a JSON value to the collection as a string, you must use getJSON to rehydrate the object when read
          *
-         * @param key The key to add
-         * @param o The value to add
+         * @param {string} key The key used to store this setting
+         * @param {any} value The setting value to store
          */
-        add(key: string, o: T): void;
+        addJSON(key: string, value: any): void;
         /**
-         * Merges the supplied typed hash into this dictionary instance. Existing values are updated and new ones are created as appropriate.
-         */
-        merge(source: TypedHash<T> | Dictionary<T>): void;
-        /**
-         * Removes a value from the dictionary
+         * Applies the supplied hash to the setting collection overwriting any existing value, or created new values
          *
-         * @param key The key of the key/value pair to remove. Returns null if the key was not found.
+         * @param {TypedHash<any>} hash The set of values to add
          */
-        remove(key: string): T;
+        apply(hash: TypedHash<any>): Promise<void>;
         /**
-         * Returns all the keys currently in the dictionary as an array
-         */
-        getKeys(): string[];
-        /**
-         * Returns all the values currently in the dictionary as an array
-         */
-        getValues(): T[];
-        /**
-         * Clears the current dictionary
-         */
-        clear(): void;
-        /**
-         * Gets a count of the items currently in the dictionary
-         */
-        count(): number;
-    }
-}
-declare module "configuration/providers/cachingConfigurationProvider" {
-    import { IConfigurationProvider } from "configuration/configuration";
-    import { TypedHash } from "collections/collections";
-    import * as storage from "utils/storage";
-    /**
-     * A caching provider which can wrap other non-caching providers
-     *
-     */
-    export default class CachingConfigurationProvider implements IConfigurationProvider {
-        private wrappedProvider;
-        private store;
-        private cacheKey;
-        /**
-         * Creates a new caching configuration provider
-         * @constructor
-         * @param {IConfigurationProvider} wrappedProvider Provider which will be used to fetch the configuration
-         * @param {string} cacheKey Key that will be used to store cached items to the cache
-         * @param {IPnPClientStore} cacheStore OPTIONAL storage, which will be used to store cached settings.
-         */
-        constructor(wrappedProvider: IConfigurationProvider, cacheKey: string, cacheStore?: storage.PnPClientStore);
-        /**
-         * Gets the wrapped configuration providers
+         * Loads configuration settings into the collection from the supplied provider and returns a Promise
          *
-         * @return {IConfigurationProvider} Wrapped configuration provider
+         * @param {IConfigurationProvider} provider The provider from which we will load the settings
          */
-        getWrappedProvider(): IConfigurationProvider;
+        load(provider: IConfigurationProvider): Promise<void>;
         /**
-         * Loads the configuration values either from the cache or from the wrapped provider
+         * Gets a value from the configuration
          *
-         * @return {Promise<TypedHash<string>>} Promise of loaded configuration values
+         * @param {string} key The key whose value we want to return. Returns null if the key does not exist
+         * @return {string} string value from the configuration
          */
-        getConfiguration(): Promise<TypedHash<string>>;
-        private selectPnPCache();
+        get(key: string): string;
+        /**
+         * Gets a JSON value, rehydrating the stored string to the original object
+         *
+         * @param {string} key The key whose value we want to return. Returns null if the key does not exist
+         * @return {any} object from the configuration
+         */
+        getJSON(key: string): any;
     }
 }
 declare module "utils/logging" {
@@ -384,7 +403,7 @@ declare module "utils/logging" {
         static activeLogLevel: LogLevel;
         private static readonly instance;
         /**
-         * Adds an ILogListener instance to the set of subscribed listeners
+         * Adds ILogListener instances to the set of subscribed listeners
          *
          * @param listeners One or more listeners to subscribe to this log
          */
@@ -405,6 +424,13 @@ declare module "utils/logging" {
          */
         static write(message: string, level?: LogLevel): void;
         /**
+         * Writes the supplied string to the subscribed listeners
+         *
+         * @param json The json object to stringify and write
+         * @param level [Optional] if supplied will be used as the level of the entry (Default: LogLevel.Verbose)
+         */
+        static writeJSON(json: any, level?: LogLevel): void;
+        /**
          * Logs the supplied entry to the subscribed listeners
          *
          * @param entry The message to log
@@ -423,32 +449,6 @@ declare module "utils/logging" {
      *
      */
     export class ConsoleListener implements LogListener {
-        /**
-         * Any associated data that a given logging listener may choose to log or ignore
-         *
-         * @param entry The information to be logged
-         */
-        log(entry: LogEntry): void;
-        /**
-         * Formats the message
-         *
-         * @param entry The information to format into a string
-         */
-        private format(entry);
-    }
-    /**
-     * Implementation of ILogListener which logs to Azure Insights
-     *
-     */
-    export class AzureInsightsListener implements LogListener {
-        private azureInsightsInstrumentationKey;
-        /**
-         * Creats a new instance of the AzureInsightsListener class
-         *
-         * @constructor
-         * @param azureInsightsInstrumentationKey The instrumentation key created when the Azure Insights instance was created
-         */
-        constructor(azureInsightsInstrumentationKey: string);
         /**
          * Any associated data that a given logging listener may choose to log or ignore
          *
@@ -494,11 +494,7 @@ declare module "net/fetchclient" {
 }
 declare module "configuration/pnplibconfig" {
     import { TypedHash } from "collections/collections";
-    export interface NodeClientData {
-        clientId: string;
-        clientSecret: string;
-        siteUrl: string;
-    }
+    import { HttpClientImpl } from "net/httpclient";
     export interface LibraryConfiguration {
         /**
          * Any headers to apply to all requests
@@ -517,54 +513,95 @@ declare module "configuration/pnplibconfig" {
          */
         defaultCachingTimeoutSeconds?: number;
         /**
-         * If true the SP.RequestExecutor will be used to make the requests, you must include the required external libs
+         * Defines a factory method used to create fetch clients
          */
-        useSPRequestExecutor?: boolean;
-        /**
-         * If set the library will use node-fetch, typically for use with testing but works with any valid client id/secret pair
-         */
-        nodeClientOptions?: NodeClientData;
+        fetchClientFactory?: () => HttpClientImpl;
     }
     export class RuntimeConfigImpl {
         private _headers;
         private _defaultCachingStore;
         private _defaultCachingTimeoutSeconds;
         private _globalCacheDisable;
-        private _useSPRequestExecutor;
-        private _useNodeClient;
-        private _nodeClientData;
+        private _fetchClientFactory;
         constructor();
         set(config: LibraryConfiguration): void;
         readonly headers: TypedHash<string>;
         readonly defaultCachingStore: "session" | "local";
         readonly defaultCachingTimeoutSeconds: number;
         readonly globalCacheDisable: boolean;
-        readonly useSPRequestExecutor: boolean;
-        readonly useNodeFetchClient: boolean;
-        readonly nodeRequestOptions: NodeClientData;
+        readonly fetchClientFactory: () => HttpClientImpl;
     }
     export let RuntimeConfig: RuntimeConfigImpl;
     export function setRuntimeConfig(config: LibraryConfiguration): void;
 }
-declare module "sharepoint/rest/odata" {
-    import { QueryableConstructor } from "sharepoint/rest/queryable";
+declare module "utils/exceptions" {
+    /**
+     * Represents an exception with an HttpClient request
+     *
+     */
+    export class ProcessHttpClientResponseException extends Error {
+        readonly status: number;
+        readonly statusText: string;
+        readonly data: any;
+        constructor(status: number, statusText: string, data: any);
+    }
+    export class NoCacheAvailableException extends Error {
+        constructor(msg?: string);
+    }
+    export class APIUrlException extends Error {
+        constructor(msg?: string);
+    }
+    export class AuthUrlException extends Error {
+        constructor(data: any, msg?: string);
+    }
+    export class NodeFetchClientUnsupportedException extends Error {
+        constructor(msg?: string);
+    }
+    export class SPRequestExecutorUndefinedException extends Error {
+        constructor();
+    }
+    export class MaxCommentLengthException extends Error {
+        constructor(msg?: string);
+    }
+    export class NotSupportedInBatchException extends Error {
+        constructor(operation?: string);
+    }
+    export class ODataIdException extends Error {
+        constructor(data: any, msg?: string);
+    }
+    export class BatchParseException extends Error {
+        constructor(msg: string);
+    }
+    export class AlreadyInBatchException extends Error {
+        constructor(msg?: string);
+    }
+    export class FunctionExpectedException extends Error {
+        constructor(msg?: string);
+    }
+    export class UrlException extends Error {
+        constructor(msg: string);
+    }
+}
+declare module "sharepoint/odata" {
+    import { QueryableConstructor } from "sharepoint/queryable";
     export function extractOdataId(candidate: any): string;
-    export interface ODataParser<T, U> {
+    export interface ODataParser<U> {
         parse(r: Response): Promise<U>;
     }
-    export abstract class ODataParserBase<T, U> implements ODataParser<T, U> {
+    export abstract class ODataParserBase<U> implements ODataParser<U> {
         parse(r: Response): Promise<U>;
+        protected handleError(r: Response, reject: (reason?: any) => void): boolean;
         protected parseODataJSON<U>(json: any): U;
     }
-    export class ODataDefaultParser extends ODataParserBase<any, any> {
+    export class ODataDefaultParser extends ODataParserBase<any> {
     }
-    export class ODataRawParserImpl implements ODataParser<any, any> {
+    export class ODataRawParserImpl implements ODataParser<any> {
         parse(r: Response): Promise<any>;
     }
     export let ODataRaw: ODataRawParserImpl;
-    export function ODataValue<T>(): ODataParser<any, T>;
-    export function ODataEntity<T>(factory: QueryableConstructor<T>): ODataParser<T, T>;
-    export function ODataEntityArray<T>(factory: QueryableConstructor<T>): ODataParser<T, T[]>;
+    export function ODataValue<T>(): ODataParser<T>;
+    export function ODataEntity<T>(factory: QueryableConstructor<T>): ODataParser<T>;
+    export function ODataEntityArray<T>(factory: QueryableConstructor<T>): ODataParser<T[]>;
     /**
      * Manages a batch of OData operations
      */
@@ -582,7 +619,7 @@ declare module "sharepoint/rest/odata" {
          * @param options Any options to include in the request
          * @param parser The parser that will hadle the results of the request
          */
-        add<U>(url: string, method: string, options: any, parser: ODataParser<any, U>): Promise<U>;
+        add<T>(url: string, method: string, options: any, parser: ODataParser<T>): Promise<T>;
         addBatchDependency(): () => void;
         /**
          * Execute the current batch and resolve the associated promises
@@ -597,6 +634,18 @@ declare module "sharepoint/rest/odata" {
          * @param body Text body of the response from the batch request
          */
         private _parseResponse(body);
+    }
+    export class TextFileParser implements ODataParser<string> {
+        parse(r: Response): Promise<string>;
+    }
+    export class BlobFileParser implements ODataParser<Blob> {
+        parse(r: Response): Promise<Blob>;
+    }
+    export class JSONFileParser implements ODataParser<any> {
+        parse(r: Response): Promise<any>;
+    }
+    export class BufferFileParser implements ODataParser<ArrayBuffer> {
+        parse(r: any): Promise<ArrayBuffer>;
     }
 }
 declare module "net/digestcache" {
@@ -614,59 +663,11 @@ declare module "net/digestcache" {
         clear(): void;
     }
 }
-declare module "net/sprequestexecutorclient" {
-    import { HttpClientImpl } from "net/httpclient";
-    /**
-     * Makes requests using the SP.RequestExecutor library.
-     */
-    export class SPRequestExecutorClient implements HttpClientImpl {
-        /**
-         * Fetches a URL using the SP.RequestExecutor library.
-         */
-        fetch(url: string, options: any): Promise<Response>;
-        /**
-         * Converts a SharePoint REST API response to a fetch API response.
-         */
-        private convertToResponse;
-    }
-}
-declare module "net/nodefetchclient" {
-    import { HttpClientImpl } from "net/httpclient";
-    export interface AuthToken {
-        token_type: string;
-        expires_in: string;
-        not_before: string;
-        expires_on: string;
-        resource: string;
-        access_token: string;
-    }
-    /**
-     * Fetch client for use within nodejs, requires you register a client id and secret with app only permissions
-     */
-    export class NodeFetchClient implements HttpClientImpl {
-        siteUrl: string;
-        private _clientId;
-        private _clientSecret;
-        private _realm;
-        private static SharePointServicePrincipal;
-        private token;
-        constructor(siteUrl: string, _clientId: string, _clientSecret: string, _realm?: string);
-        fetch(url: string, options: any): Promise<Response>;
-        /**
-         * Gets an add-in only authentication token based on the supplied site url, client id and secret
-         */
-        getAddInOnlyAccessToken(): Promise<AuthToken>;
-        private getRealm();
-        private getAuthUrl(realm);
-        private getFormattedPrincipal(principalName, hostName, realm);
-        private toDate(epoch);
-    }
-}
 declare module "net/httpclient" {
     export interface FetchOptions {
         method?: string;
-        headers?: HeadersInit | {
-            [index: string]: string;
+        headers?: string[][] | {
+            [key: string]: string;
         };
         body?: BodyInit;
         mode?: string | RequestMode;
@@ -683,15 +684,14 @@ declare module "net/httpclient" {
         post(url: string, options?: FetchOptions): Promise<Response>;
         patch(url: string, options?: FetchOptions): Promise<Response>;
         delete(url: string, options?: FetchOptions): Promise<Response>;
-        protected getFetchImpl(): HttpClientImpl;
         private mergeHeaders(target, source);
     }
     export interface HttpClientImpl {
-        fetch(url: string, options: any): Promise<Response>;
+        fetch(url: string, options: FetchOptions): Promise<Response>;
     }
 }
-declare module "sharepoint/rest/caching" {
-    import { ODataParser } from "sharepoint/rest/odata";
+declare module "sharepoint/caching" {
+    import { ODataParser } from "sharepoint/odata";
     import { PnPClientStore, PnPClientStorage } from "utils/storage";
     export interface ICachingOptions {
         expiration?: Date;
@@ -706,18 +706,18 @@ declare module "sharepoint/rest/caching" {
         constructor(key: string);
         readonly store: PnPClientStore;
     }
-    export class CachingParserWrapper<T, U> implements ODataParser<T, U> {
+    export class CachingParserWrapper<T> implements ODataParser<T> {
         private _parser;
         private _cacheOptions;
-        constructor(_parser: ODataParser<T, U>, _cacheOptions: CachingOptions);
-        parse(response: Response): Promise<U>;
+        constructor(_parser: ODataParser<T>, _cacheOptions: CachingOptions);
+        parse(response: Response): Promise<T>;
     }
 }
-declare module "sharepoint/rest/queryable" {
+declare module "sharepoint/queryable" {
     import { Dictionary } from "collections/collections";
     import { FetchOptions } from "net/httpclient";
-    import { ODataParser, ODataBatch } from "sharepoint/rest/odata";
-    import { ICachingOptions } from "sharepoint/rest/caching";
+    import { ODataParser, ODataBatch } from "sharepoint/odata";
+    import { ICachingOptions } from "sharepoint/caching";
     export interface QueryableConstructor<T> {
         new (baseUrl: string | Queryable, path?: string): T;
     }
@@ -821,12 +821,12 @@ declare module "sharepoint/rest/queryable" {
          * Executes the currently built request
          *
          */
-        get(parser?: ODataParser<any, any>, getOptions?: FetchOptions): Promise<any>;
-        getAs<T, U>(parser?: ODataParser<T, U>, getOptions?: FetchOptions): Promise<U>;
-        protected post(postOptions?: FetchOptions, parser?: ODataParser<any, any>): Promise<any>;
-        protected postAs<T, U>(postOptions?: FetchOptions, parser?: ODataParser<T, U>): Promise<U>;
-        protected patch(patchOptions?: FetchOptions, parser?: ODataParser<any, any>): Promise<any>;
-        protected delete(deleteOptions?: FetchOptions, parser?: ODataParser<any, any>): Promise<any>;
+        get(parser?: ODataParser<any>, getOptions?: FetchOptions): Promise<any>;
+        getAs<T>(parser?: ODataParser<T>, getOptions?: FetchOptions): Promise<T>;
+        protected post(postOptions?: FetchOptions, parser?: ODataParser<any>): Promise<any>;
+        protected postAs<T>(postOptions?: FetchOptions, parser?: ODataParser<T>): Promise<T>;
+        protected patch(patchOptions?: FetchOptions, parser?: ODataParser<any>): Promise<any>;
+        protected delete(deleteOptions?: FetchOptions, parser?: ODataParser<any>): Promise<any>;
         /**
          * Gets a parent for this instance as specified
          *
@@ -835,11 +835,10 @@ declare module "sharepoint/rest/queryable" {
         protected getParent<T extends Queryable>(factory: {
             new (q: string | Queryable, path?: string): T;
         }, baseUrl?: string | Queryable, path?: string): T;
-        private getImpl<U>(getOptions, parser);
-        private postImpl<U>(postOptions, parser);
-        private patchImpl<U>(patchOptions, parser);
-        private deleteImpl<U>(deleteOptions, parser);
-        private processHttpClientResponse<U>(response, parser);
+        private getImpl<T>(getOptions, parser);
+        private postImpl<T>(postOptions, parser);
+        private patchImpl<T>(patchOptions, parser);
+        private deleteImpl<T>(deleteOptions, parser);
     }
     /**
      * Represents a REST collection which can be filtered, paged, and selected
@@ -903,7 +902,591 @@ declare module "sharepoint/rest/queryable" {
         expand(...expands: string[]): this;
     }
 }
-declare module "sharepoint/rest/types" {
+declare module "sharepoint/search" {
+    import { Queryable, QueryableInstance } from "sharepoint/queryable";
+    /**
+     * Describes the SearchQuery interface
+     */
+    export interface SearchQuery {
+        /**
+         * A string that contains the text for the search query.
+         */
+        Querytext: string;
+        /**
+         * A string that contains the text that replaces the query text, as part of a query transform.
+         */
+        QueryTemplate?: string;
+        /**
+         * A Boolean value that specifies whether the result tables that are returned for
+         * the result block are mixed with the result tables that are returned for the original query.
+         */
+        EnableInterleaving?: boolean;
+        /**
+         * A Boolean value that specifies whether stemming is enabled.
+         */
+        EnableStemming?: boolean;
+        /**
+         * A Boolean value that specifies whether duplicate items are removed from the results.
+         */
+        TrimDuplicates?: boolean;
+        /**
+         * A Boolean value that specifies whether the exact terms in the search query are used to find matches, or if nicknames are used also.
+         */
+        EnableNicknames?: boolean;
+        /**
+         * A Boolean value that specifies whether the query uses the FAST Query Language (FQL).
+         */
+        EnableFql?: boolean;
+        /**
+         * A Boolean value that specifies whether the phonetic forms of the query terms are used to find matches.
+         */
+        EnablePhonetic?: boolean;
+        /**
+         * A Boolean value that specifies whether to perform result type processing for the query.
+         */
+        BypassResultTypes?: boolean;
+        /**
+         * A Boolean value that specifies whether to return best bet results for the query.
+         * This parameter is used only when EnableQueryRules is set to true, otherwise it is ignored.
+         */
+        ProcessBestBets?: boolean;
+        /**
+         * A Boolean value that specifies whether to enable query rules for the query.
+         */
+        EnableQueryRules?: boolean;
+        /**
+         * A Boolean value that specifies whether to sort search results.
+         */
+        EnableSorting?: boolean;
+        /**
+         * Specifies whether to return block rank log information in the BlockRankLog property of the interleaved result table.
+         * A block rank log contains the textual information on the block score and the documents that were de-duplicated.
+         */
+        GenerateBlockRankLog?: boolean;
+        /**
+         * The result source ID to use for executing the search query.
+         */
+        SourceId?: string;
+        /**
+         * The ID of the ranking model to use for the query.
+         */
+        RankingModelId?: string;
+        /**
+         * The first row that is included in the search results that are returned.
+         * You use this parameter when you want to implement paging for search results.
+         */
+        StartRow?: number;
+        /**
+         * The maximum number of rows overall that are returned in the search results.
+         * Compared to RowsPerPage, RowLimit is the maximum number of rows returned overall.
+         */
+        RowLimit?: number;
+        /**
+         * The maximum number of rows to return per page.
+         * Compared to RowLimit, RowsPerPage refers to the maximum number of rows to return per page,
+         * and is used primarily when you want to implement paging for search results.
+         */
+        RowsPerPage?: number;
+        /**
+         * The managed properties to return in the search results.
+         */
+        SelectProperties?: string[];
+        /**
+         * The locale ID (LCID) for the query.
+         */
+        Culture?: number;
+        /**
+         * The set of refinement filters used when issuing a refinement query (FQL)
+         */
+        RefinementFilters?: string[];
+        /**
+         * The set of refiners to return in a search result.
+         */
+        Refiners?: string;
+        /**
+         * The additional query terms to append to the query.
+         */
+        HiddenConstraints?: string;
+        /**
+         * The list of properties by which the search results are ordered.
+         */
+        SortList?: Sort[];
+        /**
+         * The amount of time in milliseconds before the query request times out.
+         */
+        Timeout?: number;
+        /**
+         * The properties to highlight in the search result summary when the property value matches the search terms entered by the user.
+         */
+        HithighlightedProperties?: string[];
+        /**
+         * The type of the client that issued the query.
+         */
+        ClientType?: string;
+        /**
+         * The GUID for the user who submitted the search query.
+         */
+        PersonalizationData?: string;
+        /**
+         * The URL for the search results page.
+         */
+        ResultsURL?: string;
+        /**
+         * Custom tags that identify the query. You can specify multiple query tags
+         */
+        QueryTag?: string[];
+        /**
+         * Properties to be used to configure the search query
+         */
+        Properties?: SearchProperty[];
+        /**
+         *  A Boolean value that specifies whether to return personal favorites with the search results.
+         */
+        ProcessPersonalFavorites?: boolean;
+        /**
+         * The location of the queryparametertemplate.xml file. This file is used to enable anonymous users to make Search REST queries.
+         */
+        QueryTemplatePropertiesUrl?: string;
+        /**
+         * Special rules for reordering search results.
+         * These rules can specify that documents matching certain conditions are ranked higher or lower in the results.
+         * This property applies only when search results are sorted based on rank.
+         */
+        ReorderingRules?: ReorderingRule[];
+        /**
+         * The number of properties to show hit highlighting for in the search results.
+         */
+        HitHighlightedMultivaluePropertyLimit?: number;
+        /**
+         * A Boolean value that specifies whether the hit highlighted properties can be ordered.
+         */
+        EnableOrderingHitHighlightedProperty?: boolean;
+        /**
+         * The managed properties that are used to determine how to collapse individual search results.
+         * Results are collapsed into one or a specified number of results if they match any of the individual collapse specifications.
+         * In a collapse specification, results are collapsed if their properties match all individual properties in the collapse specification.
+         */
+        CollapseSpecification?: string;
+        /**
+         * The locale identifier (LCID) of the user interface
+         */
+        UIlanguage?: number;
+        /**
+         * The preferred number of characters to display in the hit-highlighted summary generated for a search result.
+         */
+        DesiredSnippetLength?: number;
+        /**
+         * The maximum number of characters to display in the hit-highlighted summary generated for a search result.
+         */
+        MaxSnippetLength?: number;
+        /**
+         * The number of characters to display in the result summary for a search result.
+         */
+        SummaryLength?: number;
+    }
+    /**
+     * Describes the search API
+     *
+     */
+    export class Search extends QueryableInstance {
+        /**
+         * Creates a new instance of the Search class
+         *
+         * @param baseUrl The url for the search context
+         * @param query The SearchQuery object to execute
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * .......
+         * @returns Promise
+         */
+        execute(query: SearchQuery): Promise<SearchResults>;
+    }
+    /**
+     * Describes the SearchResults class, which returns the formatted and raw version of the query response
+     */
+    export class SearchResults {
+        PrimarySearchResults: any;
+        RawSearchResults: any;
+        RowCount: number;
+        TotalRows: number;
+        TotalRowsIncludingDuplicates: number;
+        ElapsedTime: number;
+        /**
+         * Creates a new instance of the SearchResult class
+         *
+         */
+        constructor(rawResponse: any);
+        /**
+         * Formats a search results array
+         *
+         * @param rawResults The array to process
+         */
+        protected formatSearchResults(rawResults: Array<any> | any): SearchResult[];
+    }
+    /**
+     * Describes the SearchResult class
+     */
+    export class SearchResult {
+        /**
+         * Creates a new instance of the SearchResult class
+         *
+         */
+        constructor(rawItem: any);
+    }
+    /**
+     * Defines how search results are sorted.
+     */
+    export interface Sort {
+        /**
+         * The name for a property by which the search results are ordered.
+         */
+        Property: string;
+        /**
+         * The direction in which search results are ordered.
+         */
+        Direction: SortDirection;
+    }
+    /**
+     * Defines one search property
+     */
+    export interface SearchProperty {
+        Name: string;
+        Value: SearchPropertyValue;
+    }
+    /**
+     * Defines one search property value
+     */
+    export interface SearchPropertyValue {
+        StrVal: string;
+        QueryPropertyValueTypeIndex: QueryPropertyValueType;
+    }
+    /**
+     * defines the SortDirection enum
+     */
+    export enum SortDirection {
+        Ascending = 0,
+        Descending = 1,
+        FQLFormula = 2,
+    }
+    /**
+     * Defines how ReorderingRule interface, used for reordering results
+     */
+    export interface ReorderingRule {
+        /**
+         * The value to match on
+         */
+        MatchValue: string;
+        /**
+         * The rank boosting
+         */
+        Boost: number;
+        /**
+        * The rank boosting
+        */
+        MatchType: ReorderingRuleMatchType;
+    }
+    /**
+     * defines the ReorderingRuleMatchType  enum
+     */
+    export enum ReorderingRuleMatchType {
+        ResultContainsKeyword = 0,
+        TitleContainsKeyword = 1,
+        TitleMatchesKeyword = 2,
+        UrlStartsWith = 3,
+        UrlExactlyMatches = 4,
+        ContentTypeIs = 5,
+        FileExtensionMatches = 6,
+        ResultHasTag = 7,
+        ManualCondition = 8,
+    }
+    /**
+     * Specifies the type value for the property
+     */
+    export enum QueryPropertyValueType {
+        None = 0,
+        StringType = 1,
+        Int32TYpe = 2,
+        BooleanType = 3,
+        StringArrayType = 4,
+        UnSupportedType = 5,
+    }
+}
+declare module "sharepoint/searchsuggest" {
+    import { Queryable, QueryableInstance } from "sharepoint/queryable";
+    /**
+     * Defines a query execute against the search/suggest endpoint (see https://msdn.microsoft.com/en-us/library/office/dn194079.aspx)
+     */
+    export interface SearchSuggestQuery {
+        /**
+         * A string that contains the text for the search query.
+         */
+        querytext: string;
+        /**
+         * The number of query suggestions to retrieve. Must be greater than zero (0). The default value is 5.
+         */
+        count?: number;
+        /**
+         * The number of personal results to retrieve. Must be greater than zero (0). The default value is 5.
+         */
+        personalCount?: number;
+        /**
+         * A Boolean value that specifies whether to retrieve pre-query or post-query suggestions. true to return pre-query suggestions; otherwise, false. The default value is false.
+         */
+        preQuery?: boolean;
+        /**
+         * A Boolean value that specifies whether to hit-highlight or format in bold the query suggestions. true to format in bold the terms in the returned query suggestions
+         * that match terms in the specified query; otherwise, false. The default value is true.
+         */
+        hitHighlighting?: boolean;
+        /**
+         * A Boolean value that specifies whether to capitalize the first letter in each term in the returned query suggestions. true to capitalize the first letter in each term;
+         * otherwise, false. The default value is false.
+         */
+        capitalize?: boolean;
+        /**
+         * The locale ID (LCID) for the query (see https://msdn.microsoft.com/en-us/library/cc233982.aspx).
+         */
+        culture?: string;
+        /**
+         * A Boolean value that specifies whether stemming is enabled. true to enable stemming; otherwise, false. The default value is true.
+         */
+        stemming?: boolean;
+        /**
+         * A Boolean value that specifies whether to include people names in the returned query suggestions. true to include people names in the returned query suggestions;
+         * otherwise, false. The default value is true.
+         */
+        includePeople?: boolean;
+        /**
+         * A Boolean value that specifies whether to turn on query rules for this query. true to turn on query rules; otherwise, false. The default value is true.
+         */
+        queryRules?: boolean;
+        /**
+         * A Boolean value that specifies whether to return query suggestions for prefix matches. true to return query suggestions based on prefix matches, otherwise, false when
+         * query suggestions should match the full query word.
+         */
+        prefixMatch?: boolean;
+    }
+    export class SearchSuggest extends QueryableInstance {
+        constructor(baseUrl: string | Queryable, path?: string);
+        execute(query: SearchSuggestQuery): Promise<SearchSuggestResult>;
+        private mapQueryToQueryString(query);
+    }
+    export class SearchSuggestResult {
+        PeopleNames: string[];
+        PersonalResults: PersonalResultSuggestion[];
+        Queries: any[];
+        constructor(json: any);
+    }
+    export interface PersonalResultSuggestion {
+        HighlightedTitle?: string;
+        IsBestBet?: boolean;
+        Title?: string;
+        TypeId?: string;
+        Url?: string;
+    }
+}
+declare module "sharepoint/siteusers" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    import { SiteGroups } from "sharepoint/sitegroups";
+    import { TypedHash } from "collections/collections";
+    /**
+     * Properties that provide both a getter, and a setter.
+     *
+     */
+    export interface UserUpdateResult {
+        user: SiteUser;
+        data: any;
+    }
+    /**
+     * Describes a collection of all site collection users
+     *
+     */
+    export class SiteUsers extends QueryableCollection {
+        /**
+         * Creates a new instance of the Users class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this user collection
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Gets a user from the collection by email
+         *
+         * @param email The email of the user
+         */
+        getByEmail(email: string): SiteUser;
+        /**
+         * Gets a user from the collection by id
+         *
+         * @param id The id of the user
+         */
+        getById(id: number): SiteUser;
+        /**
+         * Gets a user from the collection by login name
+         *
+         * @param loginName The email address of the user
+         */
+        getByLoginName(loginName: string): SiteUser;
+        /**
+         * Removes a user from the collection by id
+         *
+         * @param id The id of the user
+         */
+        removeById(id: number | Queryable): Promise<any>;
+        /**
+         * Removes a user from the collection by login name
+         *
+         * @param loginName The login name of the user
+         */
+        removeByLoginName(loginName: string): Promise<any>;
+        /**
+         * Add a user to a group
+         *
+         * @param loginName The login name of the user to add to the group
+         *
+         */
+        add(loginName: string): Promise<SiteUser>;
+    }
+    /**
+     * Describes a single user
+     *
+     */
+    export class SiteUser extends QueryableInstance {
+        /**
+         * Creates a new instance of the User class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this fields collection
+         * @param path Optional, passes the path to the user
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Get's the groups for this user.
+         *
+         */
+        readonly groups: SiteGroups;
+        /**
+        * Updates this user instance with the supplied properties
+        *
+        * @param properties A plain object of property names and values to update for the user
+        */
+        update(properties: TypedHash<any>): Promise<UserUpdateResult>;
+        /**
+         * Delete this user
+         *
+         */
+        delete(): Promise<void>;
+    }
+    /**
+     * Represents the current user
+     */
+    export class CurrentUser extends QueryableInstance {
+        constructor(baseUrl: string | Queryable, path?: string);
+    }
+}
+declare module "sharepoint/sitegroups" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    import { SiteUsers } from "sharepoint/siteusers";
+    import { TypedHash } from "collections/collections";
+    /**
+     * Principal Type enum
+     *
+     */
+    export enum PrincipalType {
+        None = 0,
+        User = 1,
+        DistributionList = 2,
+        SecurityGroup = 4,
+        SharePointGroup = 8,
+        All = 15,
+    }
+    /**
+     * Result from adding a group.
+     *
+     */
+    export interface GroupUpdateResult {
+        group: SiteGroup;
+        data: any;
+    }
+    /**
+     * Results from updating a group
+     *
+     */
+    export interface GroupAddResult {
+        group: SiteGroup;
+        data: any;
+    }
+    /**
+     * Describes a collection of site users
+     *
+     */
+    export class SiteGroups extends QueryableCollection {
+        /**
+         * Creates a new instance of the SiteUsers class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this user collection
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Adds a new group to the site collection
+         *
+         * @param props The properties to be updated
+         */
+        add(properties: TypedHash<any>): Promise<GroupAddResult>;
+        /**
+         * Gets a group from the collection by name
+         *
+         * @param email The name of the group
+         */
+        getByName(groupName: string): SiteGroup;
+        /**
+         * Gets a group from the collection by id
+         *
+         * @param id The id of the group
+         */
+        getById(id: number): SiteGroup;
+        /**
+         * Removes the group with the specified member ID from the collection.
+         *
+         * @param id The id of the group to remove
+         */
+        removeById(id: number): Promise<void>;
+        /**
+         * Removes a user from the collection by login name
+         *
+         * @param loginName The login name of the user
+         */
+        removeByLoginName(loginName: string): Promise<any>;
+    }
+    /**
+     * Describes a single group
+     *
+     */
+    export class SiteGroup extends QueryableInstance {
+        /**
+         * Creates a new instance of the Group class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this site group
+         * @param path Optional, passes the path to the group
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Get's the users for this group
+         *
+         */
+        readonly users: SiteUsers;
+        /**
+        * Updates this group instance with the supplied properties
+        *
+        * @param properties A GroupWriteableProperties object of property names and values to update for the user
+        */
+        update(properties: TypedHash<any>): Promise<GroupUpdateResult>;
+    }
+    export interface SiteGroupAddResult {
+        group: SiteGroup;
+        data: any;
+    }
+}
+declare module "sharepoint/types" {
     /**
      * Represents the unique sequential location of a change within the change log.
      */
@@ -1411,270 +1994,10 @@ declare module "sharepoint/rest/types" {
         JSLinks?: string;
     }
 }
-declare module "sharepoint/rest/siteusers" {
-    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
-    import { SiteGroups } from "sharepoint/rest/sitegroups";
-    import { UserIdInfo, PrincipalType } from "sharepoint/rest/types";
-    /**
-     * Properties that provide a getter, but no setter.
-     *
-     */
-    export interface UserReadOnlyProperties {
-        id?: number;
-        isHiddenInUI?: boolean;
-        loginName?: string;
-        principalType?: PrincipalType;
-        userIdInfo?: UserIdInfo;
-    }
-    /**
-     * Properties that provide both a getter, and a setter.
-     *
-     */
-    export interface UserWriteableProperties {
-        isSiteAdmin?: string;
-        email?: string;
-        title?: string;
-    }
-    /**
-     * Properties that provide both a getter, and a setter.
-     *
-     */
-    export interface UserUpdateResult {
-        user: SiteUser;
-        data: any;
-    }
-    export interface UserProps extends UserReadOnlyProperties, UserWriteableProperties {
-        __metadata: {
-            id?: string;
-            url?: string;
-            type?: string;
-        };
-    }
-    /**
-     * Describes a collection of all site collection users
-     *
-     */
-    export class SiteUsers extends QueryableCollection {
-        /**
-         * Creates a new instance of the Users class
-         *
-         * @param baseUrl The url or Queryable which forms the parent of this user collection
-         */
-        constructor(baseUrl: string | Queryable, path?: string);
-        /**
-         * Gets a user from the collection by email
-         *
-         * @param email The email of the user
-         */
-        getByEmail(email: string): SiteUser;
-        /**
-         * Gets a user from the collection by id
-         *
-         * @param id The id of the user
-         */
-        getById(id: number): SiteUser;
-        /**
-         * Gets a user from the collection by login name
-         *
-         * @param loginName The email address of the user
-         */
-        getByLoginName(loginName: string): SiteUser;
-        /**
-         * Removes a user from the collection by id
-         *
-         * @param id The id of the user
-         */
-        removeById(id: number | Queryable): Promise<void>;
-        /**
-         * Removes a user from the collection by login name
-         *
-         * @param loginName The login name of the user
-         */
-        removeByLoginName(loginName: string): Promise<any>;
-        /**
-         * Add a user to a group
-         *
-         * @param loginName The login name of the user to add to the group
-         *
-         */
-        add(loginName: string): Promise<SiteUser>;
-    }
-    /**
-     * Describes a single user
-     *
-     */
-    export class SiteUser extends QueryableInstance {
-        /**
-         * Creates a new instance of the User class
-         *
-         * @param baseUrl The url or Queryable which forms the parent of this fields collection
-         * @param path Optional, passes the path to the user
-         */
-        constructor(baseUrl: string | Queryable, path?: string);
-        /**
-         * Get's the groups for this user.
-         *
-         */
-        readonly groups: SiteGroups;
-        /**
-        * Updates this user instance with the supplied properties
-        *
-        * @param properties A plain object of property names and values to update for the user
-        */
-        update(properties: UserWriteableProperties): Promise<UserUpdateResult>;
-        /**
-         * Delete this user
-         *
-         */
-        delete(): Promise<void>;
-    }
-}
-declare module "sharepoint/rest/sitegroups" {
-    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
-    import { SiteUser, SiteUsers } from "sharepoint/rest/siteusers";
-    /**
-     * Properties that provide a getter, but no setter.
-     *
-     */
-    export interface GroupReadOnlyProperties {
-        canCurrentUserEditMembership?: boolean;
-        canCurrentUserManageGroup?: boolean;
-        canCurrentUserViewMembership?: boolean;
-        id?: number;
-        isHiddenInUI?: boolean;
-        loginName?: string;
-        ownerTitle?: string;
-        principalType?: PrincipalType;
-        users?: SiteUsers;
-    }
-    /**
-     * Properties that provide both a getter, and a setter.
-     *
-     */
-    export interface GroupWriteableProperties {
-        allowMembersEditMembership?: boolean;
-        allowRequestToJoinLeave?: boolean;
-        autoAcceptRequestToJoinLeave?: boolean;
-        description?: string;
-        onlyAllowMembersViewMembership?: boolean;
-        owner?: number | SiteUser | SiteGroup;
-        requestToJoinLeaveEmailSetting?: string;
-        title?: string;
-    }
-    /**
-     * Group Properties
-     *
-     */
-    export interface GroupProperties extends GroupReadOnlyProperties, GroupWriteableProperties {
-        __metadata: {
-            id?: string;
-            url?: string;
-            type?: string;
-        };
-    }
-    /**
-     * Principal Type enum
-     *
-     */
-    export enum PrincipalType {
-        None = 0,
-        User = 1,
-        DistributionList = 2,
-        SecurityGroup = 4,
-        SharePointGroup = 8,
-        All = 15,
-    }
-    /**
-     * Result from adding a group.
-     *
-     */
-    export interface GroupUpdateResult {
-        group: SiteGroup;
-        data: any;
-    }
-    /**
-     * Results from updating a group
-     *
-     */
-    export interface GroupAddResult {
-        group: SiteGroup;
-        data: any;
-    }
-    /**
-     * Describes a collection of site users
-     *
-     */
-    export class SiteGroups extends QueryableCollection {
-        /**
-         * Creates a new instance of the SiteUsers class
-         *
-         * @param baseUrl The url or Queryable which forms the parent of this user collection
-         */
-        constructor(baseUrl: string | Queryable, path?: string);
-        /**
-         * Adds a new group to the site collection
-         *
-         * @param props The properties to be updated
-         */
-        add(properties: GroupWriteableProperties): Promise<GroupAddResult>;
-        /**
-         * Gets a group from the collection by name
-         *
-         * @param email The name of the group
-         */
-        getByName(groupName: string): SiteGroup;
-        /**
-         * Gets a group from the collection by id
-         *
-         * @param id The id of the group
-         */
-        getById(id: number): SiteGroup;
-        /**
-         * Removes the group with the specified member ID from the collection.
-         *
-         * @param id The id of the group to remove
-         */
-        removeById(id: number): Promise<void>;
-        /**
-         * Removes a user from the collection by login name
-         *
-         * @param loginName The login name of the user
-         */
-        removeByLoginName(loginName: string): Promise<any>;
-    }
-    /**
-     * Describes a single group
-     *
-     */
-    export class SiteGroup extends QueryableInstance {
-        /**
-         * Creates a new instance of the Group class
-         *
-         * @param baseUrl The url or Queryable which forms the parent of this site group
-         * @param path Optional, passes the path to the group
-         */
-        constructor(baseUrl: string | Queryable, path?: string);
-        /**
-         * Get's the users for this group
-         *
-         */
-        readonly users: SiteUsers;
-        /**
-        * Updates this group instance with the supplied properties
-        *
-        * @param properties A GroupWriteableProperties object of property names and values to update for the user
-        */
-        update(properties: GroupWriteableProperties): Promise<GroupUpdateResult>;
-    }
-    export interface SiteGroupAddResult {
-        group: SiteGroup;
-        data: GroupProperties;
-    }
-}
-declare module "sharepoint/rest/roles" {
-    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
-    import { SiteGroups } from "sharepoint/rest/sitegroups";
-    import { BasePermissions } from "sharepoint/rest/types";
+declare module "sharepoint/roles" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    import { SiteGroups } from "sharepoint/sitegroups";
+    import { BasePermissions } from "sharepoint/types";
     import { TypedHash } from "collections/collections";
     /**
      * Describes a set of role assignments for the current scope
@@ -1777,7 +2100,7 @@ declare module "sharepoint/rest/roles" {
          *
          * @param properties A plain object hash of values to update for the web
          */
-        update(properties: TypedHash<string | number | boolean | BasePermissions>): Promise<RoleDefinitionUpdateResult>;
+        update(properties: TypedHash<any>): Promise<RoleDefinitionUpdateResult>;
         /**
          * Delete this role definition
          *
@@ -1796,9 +2119,9 @@ declare module "sharepoint/rest/roles" {
         constructor(baseUrl: string | Queryable, path?: string);
     }
 }
-declare module "sharepoint/rest/queryablesecurable" {
-    import { RoleAssignments } from "sharepoint/rest/roles";
-    import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
+declare module "sharepoint/queryablesecurable" {
+    import { RoleAssignments } from "sharepoint/roles";
+    import { Queryable, QueryableInstance } from "sharepoint/queryable";
     export class QueryableSecurable extends QueryableInstance {
         /**
          * Gets the set of role assignments for this item
@@ -1824,16 +2147,15 @@ declare module "sharepoint/rest/queryablesecurable" {
          */
         breakRoleInheritance(copyRoleAssignments?: boolean, clearSubscopes?: boolean): Promise<any>;
         /**
-         * Breaks the security inheritance at this level optinally copying permissions and clearing subscopes
+         * Removes the local role assignments so that it re-inherit role assignments from the parent object.
          *
          */
         resetRoleInheritance(): Promise<any>;
     }
 }
-declare module "sharepoint/rest/files" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
-    import { Item } from "sharepoint/rest/items";
-    import { ODataParser } from "sharepoint/rest/odata";
+declare module "sharepoint/files" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
+    import { Item } from "sharepoint/items";
     export interface ChunkedFileUploadProgressData {
         stage: "starting" | "continue" | "finishing";
         blockNumber: number;
@@ -2010,6 +2332,10 @@ declare module "sharepoint/rest/files" {
          */
         getBuffer(): Promise<ArrayBuffer>;
         /**
+         * Gets the contents of a file as an ArrayBuffer, works in Node.js
+         */
+        getJSON(): Promise<any>;
+        /**
          * Sets the content of a file, for large files use setContentChunked
          *
          * @param content The file content
@@ -2062,15 +2388,6 @@ declare module "sharepoint/rest/files" {
          * @returns The newly uploaded file.
          */
         private finishUpload(uploadId, fileOffset, fragment);
-    }
-    export class TextFileParser implements ODataParser<any, string> {
-        parse(r: Response): Promise<string>;
-    }
-    export class BlobFileParser implements ODataParser<any, Blob> {
-        parse(r: Response): Promise<Blob>;
-    }
-    export class BufferFileParser implements ODataParser<any, ArrayBuffer> {
-        parse(r: any): Promise<ArrayBuffer>;
     }
     /**
      * Describes a collection of Version objects
@@ -2155,10 +2472,10 @@ declare module "sharepoint/rest/files" {
         FormPage = 2,
     }
 }
-declare module "sharepoint/rest/folders" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
-    import { Files } from "sharepoint/rest/files";
-    import { Item } from "sharepoint/rest/items";
+declare module "sharepoint/folders" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
+    import { Files } from "sharepoint/files";
+    import { Item } from "sharepoint/items";
     /**
      * Describes a collection of Folder objects
      *
@@ -2251,9 +2568,9 @@ declare module "sharepoint/rest/folders" {
         data: any;
     }
 }
-declare module "sharepoint/rest/contenttypes" {
+declare module "sharepoint/contenttypes" {
     import { TypedHash } from "collections/collections";
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
     /**
      * Describes a collection of content types
      *
@@ -2301,11 +2618,11 @@ declare module "sharepoint/rest/contenttypes" {
         /**
          * Gets the column (also known as field) references in the content type.
         */
-        readonly fieldLinks: Queryable;
+        readonly fieldLinks: FieldLinks;
         /**
          * Gets a value that specifies the collection of fields for the content type.
          */
-        readonly fields: Queryable;
+        readonly fields: QueryableCollection;
         /**
          * Gets the parent content type of the content type.
          */
@@ -2313,20 +2630,118 @@ declare module "sharepoint/rest/contenttypes" {
         /**
          * Gets a value that specifies the collection of workflow associations for the content type.
          */
-        readonly workflowAssociations: Queryable;
+        readonly workflowAssociations: QueryableCollection;
     }
     export interface ContentTypeAddResult {
         contentType: ContentType;
         data: any;
     }
+    /**
+     * Represents a collection of field link instances
+     */
+    export class FieldLinks extends QueryableCollection {
+        /**
+         * Creates a new instance of the ContentType class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this content type instance
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Gets a FieldLink by GUID id
+         *
+         * @param id The GUID id of the field link
+         */
+        getById(id: string): FieldLink;
+    }
+    /**
+     * Represents a field link instance
+     */
+    export class FieldLink extends QueryableInstance {
+        /**
+         * Creates a new instance of the ContentType class
+        *
+        * @param baseUrl The url or Queryable which forms the parent of this content type instance
+        */
+        constructor(baseUrl: string | Queryable, path?: string);
+    }
 }
-declare module "sharepoint/rest/items" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
-    import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
-    import { Folder } from "sharepoint/rest/folders";
-    import { ContentType } from "sharepoint/rest/contenttypes";
+declare module "sharepoint/attachmentfiles" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    /**
+     * Describes a collection of Item objects
+     *
+     */
+    export class AttachmentFiles extends QueryableCollection {
+        /**
+         * Creates a new instance of the AttachmentFiles class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this attachments collection
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Gets a Attachment File by filename
+         *
+         * @param name The name of the file, including extension.
+         */
+        getByName(name: string): AttachmentFile;
+        /**
+         * Adds a new attachment to the collection
+         *
+         * @param name The name of the file, including extension.
+         * @param content The Base64 file content.
+         */
+        add(name: string, content: string): Promise<AttachmentFileAddResult>;
+    }
+    /**
+     * Describes a single attachment file instance
+     *
+     */
+    export class AttachmentFile extends QueryableInstance {
+        /**
+         * Creates a new instance of the AttachmentFile class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this attachment file
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Gets the contents of the file as text
+         *
+         */
+        getText(): Promise<string>;
+        /**
+         * Gets the contents of the file as a blob, does not work in Node.js
+         *
+         */
+        getBlob(): Promise<Blob>;
+        /**
+         * Gets the contents of a file as an ArrayBuffer, works in Node.js
+         */
+        getBuffer(): Promise<ArrayBuffer>;
+        /**
+         * Gets the contents of a file as an ArrayBuffer, works in Node.js
+         */
+        getJSON(): Promise<any>;
+        /**
+         * Delete this attachment file
+         *
+         * @param eTag Value used in the IF-Match header, by default "*"
+         */
+        delete(eTag?: string): Promise<void>;
+    }
+    export interface AttachmentFileAddResult {
+        file: AttachmentFile;
+        data: any;
+    }
+}
+declare module "sharepoint/items" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
+    import { QueryableSecurable } from "sharepoint/queryablesecurable";
+    import { Folder } from "sharepoint/folders";
+    import { File } from "sharepoint/files";
+    import { ContentType } from "sharepoint/contenttypes";
     import { TypedHash } from "collections/collections";
-    import * as Types from "sharepoint/rest/types";
+    import * as Types from "sharepoint/types";
+    import { AttachmentFiles } from "sharepoint/attachmentfiles";
     /**
      * Describes a collection of Item objects
      *
@@ -2360,7 +2775,7 @@ declare module "sharepoint/rest/items" {
          *
          * @param properties The new items's properties
          */
-        add(properties?: TypedHash<string | number | boolean>): Promise<ItemAddResult>;
+        add(properties?: TypedHash<any>, listItemEntityTypeFullName?: string): Promise<ItemAddResult>;
     }
     /**
      * Descrines a single Item instance
@@ -2377,7 +2792,7 @@ declare module "sharepoint/rest/items" {
          * Gets the set of attachments for this item
          *
          */
-        readonly attachmentFiles: QueryableCollection;
+        readonly attachmentFiles: AttachmentFiles;
         /**
          * Gets the content type for this item
          *
@@ -2414,12 +2829,17 @@ declare module "sharepoint/rest/items" {
          */
         readonly folder: Folder;
         /**
+         * Gets the folder associated with this list item (if this item represents a folder)
+         *
+         */
+        readonly file: File;
+        /**
          * Updates this list intance with the supplied properties
          *
          * @param properties A plain object hash of values to update for the list
          * @param eTag Value used in the IF-Match header, by default "*"
          */
-        update(properties: TypedHash<string | number | boolean>, eTag?: string): Promise<ItemUpdateResult>;
+        update(properties: TypedHash<any>, eTag?: string): Promise<ItemUpdateResult>;
         /**
          * Delete this item
          *
@@ -2451,7 +2871,10 @@ declare module "sharepoint/rest/items" {
     }
     export interface ItemUpdateResult {
         item: Item;
-        data: any;
+        data: ItemUpdateResultData;
+    }
+    export interface ItemUpdateResultData {
+        "odata.etag": string;
     }
     /**
      * Provides paging functionality for list items
@@ -2470,8 +2893,8 @@ declare module "sharepoint/rest/items" {
         getNext(): Promise<PagedItemCollection<any>>;
     }
 }
-declare module "sharepoint/rest/views" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
+declare module "sharepoint/views" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
     import { TypedHash } from "collections/collections";
     /**
      * Describes the views available in the current context
@@ -2573,10 +2996,10 @@ declare module "sharepoint/rest/views" {
         data: any;
     }
 }
-declare module "sharepoint/rest/fields" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
+declare module "sharepoint/fields" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
     import { TypedHash } from "collections/collections";
-    import * as Types from "sharepoint/rest/types";
+    import * as Types from "sharepoint/types";
     /**
      * Describes a collection of Field objects
      *
@@ -2729,8 +3152,8 @@ declare module "sharepoint/rest/fields" {
         field: Field;
     }
 }
-declare module "sharepoint/rest/forms" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
+declare module "sharepoint/forms" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
     /**
      * Describes a collection of Field objects
      *
@@ -2762,8 +3185,8 @@ declare module "sharepoint/rest/forms" {
         constructor(baseUrl: string | Queryable, path?: string);
     }
 }
-declare module "sharepoint/rest/subscriptions" {
-    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/rest/queryable";
+declare module "sharepoint/subscriptions" {
+    import { Queryable, QueryableCollection, QueryableInstance } from "sharepoint/queryable";
     /**
      * Describes a collection of webhook subscriptions
      *
@@ -2817,8 +3240,8 @@ declare module "sharepoint/rest/subscriptions" {
         data: any;
     }
 }
-declare module "sharepoint/rest/usercustomactions" {
-    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
+declare module "sharepoint/usercustomactions" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
     import { TypedHash } from "collections/collections";
     export class UserCustomActions extends QueryableCollection {
         constructor(baseUrl: string | Queryable, path?: string);
@@ -2844,6 +3267,11 @@ declare module "sharepoint/rest/usercustomactions" {
     export class UserCustomAction extends QueryableInstance {
         constructor(baseUrl: string | Queryable, path?: string);
         update(properties: TypedHash<string | boolean | number>): Promise<UserCustomActionUpdateResult>;
+        /**
+        * Remove a custom action
+        *
+        */
+        delete(): Promise<void>;
     }
     export interface UserCustomActionAddResult {
         data: any;
@@ -2854,18 +3282,18 @@ declare module "sharepoint/rest/usercustomactions" {
         action: UserCustomAction;
     }
 }
-declare module "sharepoint/rest/lists" {
-    import { Items } from "sharepoint/rest/items";
-    import { Views, View } from "sharepoint/rest/views";
-    import { ContentTypes } from "sharepoint/rest/contenttypes";
-    import { Fields } from "sharepoint/rest/fields";
-    import { Forms } from "sharepoint/rest/forms";
-    import { Subscriptions } from "sharepoint/rest/subscriptions";
-    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
-    import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
+declare module "sharepoint/lists" {
+    import { Items } from "sharepoint/items";
+    import { Views, View } from "sharepoint/views";
+    import { ContentTypes } from "sharepoint/contenttypes";
+    import { Fields } from "sharepoint/fields";
+    import { Forms } from "sharepoint/forms";
+    import { Subscriptions } from "sharepoint/subscriptions";
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    import { QueryableSecurable } from "sharepoint/queryablesecurable";
     import { TypedHash } from "collections/collections";
-    import { ControlMode, RenderListData, ChangeQuery, CamlQuery, ChangeLogitemQuery, ListFormData } from "sharepoint/rest/types";
-    import { UserCustomActions } from "sharepoint/rest/usercustomactions";
+    import { ControlMode, RenderListData, ChangeQuery, CamlQuery, ChangeLogitemQuery, ListFormData } from "sharepoint/types";
+    import { UserCustomActions } from "sharepoint/usercustomactions";
     /**
      * Describes a collection of List objects
      *
@@ -2886,7 +3314,7 @@ declare module "sharepoint/rest/lists" {
         /**
          * Gets a list from the collection by guid id
          *
-         * @param title The Id of the list
+         * @param id The Id of the list (GUID)
          */
         getById(id: string): List;
         /**
@@ -2900,14 +3328,13 @@ declare module "sharepoint/rest/lists" {
          */
         add(title: string, description?: string, template?: number, enableContentTypes?: boolean, additionalSettings?: TypedHash<string | number | boolean>): Promise<ListAddResult>;
         /**
-         * Ensures that the specified list exists in the collection (note: settings are not updated if the list exists,
-         * not supported for batching)
+         * Ensures that the specified list exists in the collection (note: this method not supported for batching)
          *
          * @param title The new list's title
          * @param description The new list's description
          * @param template The list template value
          * @param enableContentTypes If true content types will be allowed and enabled, otherwise they will be disallowed and not enabled
-         * @param additionalSettings Will be passed as part of the list creation body
+         * @param additionalSettings Will be passed as part of the list creation body or used to update an existing list
          */
         ensure(title: string, description?: string, template?: number, enableContentTypes?: boolean, additionalSettings?: TypedHash<string | number | boolean>): Promise<ListEnsureResult>;
         /**
@@ -3053,6 +3480,11 @@ declare module "sharepoint/rest/lists" {
          * Reserves a list item ID for idempotent list item creation.
          */
         reserveListItemId(): Promise<number>;
+        /**
+         * Returns the ListItemEntityTypeFullName for this list, used when adding/updating list items
+         *
+         */
+        getListItemEntityTypeFullName(): Promise<string>;
     }
     export interface ListAddResult {
         list: List;
@@ -3068,40 +3500,62 @@ declare module "sharepoint/rest/lists" {
         data: any;
     }
 }
-declare module "sharepoint/rest/quicklaunch" {
-    import { Queryable } from "sharepoint/rest/queryable";
+declare module "sharepoint/navigation" {
+    import { TypedHash } from "collections/collections";
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    export interface NavigationNodeAddResult {
+        data: any;
+        node: NavigationNode;
+    }
+    export interface NavigationNodeUpdateResult {
+        data: any;
+        node: NavigationNode;
+    }
     /**
-     * Describes the quick launch navigation
+     * Represents a collection of navigation nodes
      *
      */
-    export class QuickLaunch extends Queryable {
+    export class NavigationNodes extends QueryableCollection {
+        constructor(baseUrl: string | Queryable, path?: string);
         /**
-         * Creates a new instance of the Lists class
+         * Gets a navigation node by id
          *
-         * @param baseUrl The url or Queryable which forms the parent of this fields collection
+         * @param id The id of the node
          */
-        constructor(baseUrl: string | Queryable);
-    }
-}
-declare module "sharepoint/rest/topnavigationbar" {
-    import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
-    /**
-     * Describes the top navigation on the site
-     *
-     */
-    export class TopNavigationBar extends QueryableInstance {
+        getById(id: number): NavigationNode;
         /**
-         * Creates a new instance of the SiteUsers class
+         * Adds a new node to the collection
          *
-         * @param baseUrl The url or Queryable which forms the parent of this fields collection
+         * @param title Display name of the node
+         * @param url The url of the node
+         * @param visible If true the node is visible, otherwise it is hidden (default: true)
          */
-        constructor(baseUrl: string | Queryable);
+        add(title: string, url: string, visible?: boolean): Promise<NavigationNodeAddResult>;
+        /**
+         * Moves a node to be after another node in the navigation
+         *
+         * @param nodeId Id of the node to move
+         * @param previousNodeId Id of the node after which we move the node specified by nodeId
+         */
+        moveAfter(nodeId: number, previousNodeId: number): Promise<void>;
     }
-}
-declare module "sharepoint/rest/navigation" {
-    import { Queryable } from "sharepoint/rest/queryable";
-    import { QuickLaunch } from "sharepoint/rest/quicklaunch";
-    import { TopNavigationBar } from "sharepoint/rest/topnavigationbar";
+    export class NavigationNode extends QueryableInstance {
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Represents the child nodes of this node
+         */
+        readonly children: NavigationNodes;
+        /**
+         * Updates this node based on the supplied properties
+         *
+         * @param properties The hash of key/value pairs to update
+         */
+        update(properties: TypedHash<boolean | string | number>): Promise<NavigationNodeUpdateResult>;
+        /**
+         * Deletes this node and any child nodes
+         */
+        delete(): Promise<void>;
+    }
     /**
      * Exposes the navigation components
      *
@@ -3112,36 +3566,90 @@ declare module "sharepoint/rest/navigation" {
          *
          * @param baseUrl The url or Queryable which forms the parent of this fields collection
          */
-        constructor(baseUrl: string | Queryable);
+        constructor(baseUrl: string | Queryable, path?: string);
         /**
          * Gets the quicklaunch navigation for the current context
          *
          */
-        readonly quicklaunch: QuickLaunch;
+        readonly quicklaunch: NavigationNodes;
         /**
          * Gets the top bar navigation navigation for the current context
          *
          */
-        readonly topNavigationBar: TopNavigationBar;
+        readonly topNavigationBar: NavigationNodes;
     }
 }
-declare module "sharepoint/rest/webs" {
-    import { Queryable, QueryableCollection } from "sharepoint/rest/queryable";
-    import { QueryableSecurable } from "sharepoint/rest/queryablesecurable";
-    import { Lists } from "sharepoint/rest/lists";
-    import { Fields } from "sharepoint/rest/fields";
-    import { Navigation } from "sharepoint/rest/navigation";
-    import { SiteGroups } from "sharepoint/rest/sitegroups";
-    import { ContentTypes } from "sharepoint/rest/contenttypes";
-    import { Folders, Folder } from "sharepoint/rest/folders";
-    import { RoleDefinitions } from "sharepoint/rest/roles";
-    import { File } from "sharepoint/rest/files";
+declare module "sharepoint/features" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    /**
+     * Describes a collection of List objects
+     *
+     */
+    export class Features extends QueryableCollection {
+        /**
+         * Creates a new instance of the Lists class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this fields collection
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Gets a list from the collection by guid id
+         *
+         * @param id The Id of the feature (GUID)
+         */
+        getById(id: string): Feature;
+        /**
+         * Adds a new list to the collection
+         *
+         * @param id The Id of the feature (GUID)
+         * @param force If true the feature activation will be forced
+         */
+        add(id: string, force?: boolean): Promise<FeatureAddResult>;
+        /**
+         * Removes (deactivates) a feature from the collection
+         *
+         * @param id The Id of the feature (GUID)
+         * @param force If true the feature deactivation will be forced
+         */
+        remove(id: string, force?: boolean): Promise<any>;
+    }
+    export class Feature extends QueryableInstance {
+        /**
+         * Creates a new instance of the Lists class
+         *
+         * @param baseUrl The url or Queryable which forms the parent of this fields collection
+         */
+        constructor(baseUrl: string | Queryable, path?: string);
+        /**
+         * Removes (deactivates) a feature from the collection
+         *
+         * @param force If true the feature deactivation will be forced
+         */
+        deactivate(force?: boolean): Promise<any>;
+    }
+    export interface FeatureAddResult {
+        data: any;
+        feature: Feature;
+    }
+}
+declare module "sharepoint/webs" {
+    import { Queryable, QueryableCollection } from "sharepoint/queryable";
+    import { QueryableSecurable } from "sharepoint/queryablesecurable";
+    import { Lists } from "sharepoint/lists";
+    import { Fields } from "sharepoint/fields";
+    import { Navigation } from "sharepoint/navigation";
+    import { SiteGroups } from "sharepoint/sitegroups";
+    import { ContentTypes } from "sharepoint/contenttypes";
+    import { Folders, Folder } from "sharepoint/folders";
+    import { RoleDefinitions } from "sharepoint/roles";
+    import { File } from "sharepoint/files";
     import { TypedHash } from "collections/collections";
-    import * as Types from "sharepoint/rest/types";
-    import { List } from "sharepoint/rest/lists";
-    import { SiteUsers, SiteUser } from "sharepoint/rest/siteusers";
-    import { UserCustomActions } from "sharepoint/rest/usercustomactions";
-    import { ODataBatch } from "sharepoint/rest/odata";
+    import * as Types from "sharepoint/types";
+    import { List } from "sharepoint/lists";
+    import { SiteUsers, SiteUser, CurrentUser } from "sharepoint/siteusers";
+    import { UserCustomActions } from "sharepoint/usercustomactions";
+    import { ODataBatch } from "sharepoint/odata";
+    import { Features } from "sharepoint/features";
     export class Webs extends QueryableCollection {
         constructor(baseUrl: string | Queryable, webPath?: string);
         /**
@@ -3180,6 +3688,11 @@ declare module "sharepoint/rest/webs" {
          */
         readonly fields: Fields;
         /**
+         * Gets the active features for this web
+         *
+         */
+        readonly features: Features;
+        /**
          * Gets the available fields in this web
          *
          */
@@ -3199,6 +3712,10 @@ declare module "sharepoint/rest/webs" {
          *
          */
         readonly siteGroups: SiteGroups;
+        /**
+         * Gets the current user
+         */
+        readonly currentUser: CurrentUser;
         /**
          * Get the folders in this web
          *
@@ -3326,521 +3843,13 @@ declare module "sharepoint/rest/webs" {
         list: List;
     }
 }
-declare module "configuration/providers/spListConfigurationProvider" {
-    import { IConfigurationProvider } from "configuration/configuration";
-    import { TypedHash } from "collections/collections";
-    import { default as CachingConfigurationProvider } from "configuration/providers/cachingConfigurationProvider";
-    import { Web } from "sharepoint/rest/webs";
-    /**
-     * A configuration provider which loads configuration values from a SharePoint list
-     *
-     */
-    export default class SPListConfigurationProvider implements IConfigurationProvider {
-        private sourceWeb;
-        private sourceListTitle;
-        /**
-         * Creates a new SharePoint list based configuration provider
-         * @constructor
-         * @param {string} webUrl Url of the SharePoint site, where the configuration list is located
-         * @param {string} listTitle Title of the SharePoint list, which contains the configuration settings (optional, default = "config")
-         */
-        constructor(sourceWeb: Web, sourceListTitle?: string);
-        /**
-         * Gets the url of the SharePoint site, where the configuration list is located
-         *
-         * @return {string} Url address of the site
-         */
-        readonly web: Web;
-        /**
-         * Gets the title of the SharePoint list, which contains the configuration settings
-         *
-         * @return {string} List title
-         */
-        readonly listTitle: string;
-        /**
-         * Loads the configuration values from the SharePoint list
-         *
-         * @return {Promise<TypedHash<string>>} Promise of loaded configuration values
-         */
-        getConfiguration(): Promise<TypedHash<string>>;
-        /**
-         * Wraps the current provider in a cache enabled provider
-         *
-         * @return {CachingConfigurationProvider} Caching providers which wraps the current provider
-         */
-        asCaching(): CachingConfigurationProvider;
-    }
-}
-declare module "configuration/providers/providers" {
-    import { default as cachingConfigurationProvider } from "configuration/providers/cachingConfigurationProvider";
-    import { default as spListConfigurationProvider } from "configuration/providers/spListConfigurationProvider";
-    export let CachingConfigurationProvider: typeof cachingConfigurationProvider;
-    export let SPListConfigurationProvider: typeof spListConfigurationProvider;
-}
-declare module "configuration/configuration" {
-    import * as Collections from "collections/collections";
-    import * as providers from "configuration/providers/providers";
-    /**
-     * Interface for configuration providers
-     *
-     */
-    export interface IConfigurationProvider {
-        /**
-         * Gets the configuration from the provider
-         */
-        getConfiguration(): Promise<Collections.TypedHash<string>>;
-    }
-    /**
-     * Class used to manage the current application settings
-     *
-     */
-    export class Settings {
-        /**
-         * Set of pre-defined providers which are available from this library
-         */
-        Providers: typeof providers;
-        /**
-         * The settings currently stored in this instance
-         */
-        private _settings;
-        /**
-         * Creates a new instance of the settings class
-         *
-         * @constructor
-         */
-        constructor();
-        /**
-         * Adds a new single setting, or overwrites a previous setting with the same key
-         *
-         * @param {string} key The key used to store this setting
-         * @param {string} value The setting value to store
-         */
-        add(key: string, value: string): void;
-        /**
-         * Adds a JSON value to the collection as a string, you must use getJSON to rehydrate the object when read
-         *
-         * @param {string} key The key used to store this setting
-         * @param {any} value The setting value to store
-         */
-        addJSON(key: string, value: any): void;
-        /**
-         * Applies the supplied hash to the setting collection overwriting any existing value, or created new values
-         *
-         * @param {Collections.TypedHash<any>} hash The set of values to add
-         */
-        apply(hash: Collections.TypedHash<any>): Promise<void>;
-        /**
-         * Loads configuration settings into the collection from the supplied provider and returns a Promise
-         *
-         * @param {IConfigurationProvider} provider The provider from which we will load the settings
-         */
-        load(provider: IConfigurationProvider): Promise<void>;
-        /**
-         * Gets a value from the configuration
-         *
-         * @param {string} key The key whose value we want to return. Returns null if the key does not exist
-         * @return {string} string value from the configuration
-         */
-        get(key: string): string;
-        /**
-         * Gets a JSON value, rehydrating the stored string to the original object
-         *
-         * @param {string} key The key whose value we want to return. Returns null if the key does not exist
-         * @return {any} object from the configuration
-         */
-        getJSON(key: string): any;
-    }
-}
-declare module "sharepoint/rest/search" {
-    import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
-    /**
-     * Describes the SearchQuery interface
-     */
-    export interface SearchQuery {
-        /**
-         * A string that contains the text for the search query.
-         */
-        Querytext: string;
-        /**
-         * A string that contains the text that replaces the query text, as part of a query transform.
-         */
-        QueryTemplate?: string;
-        /**
-         * A Boolean value that specifies whether the result tables that are returned for
-         * the result block are mixed with the result tables that are returned for the original query.
-         */
-        EnableInterleaving?: boolean;
-        /**
-         * A Boolean value that specifies whether stemming is enabled.
-         */
-        EnableStemming?: boolean;
-        /**
-         * A Boolean value that specifies whether duplicate items are removed from the results.
-         */
-        TrimDuplicates?: boolean;
-        /**
-         * A Boolean value that specifies whether the exact terms in the search query are used to find matches, or if nicknames are used also.
-         */
-        EnableNicknames?: boolean;
-        /**
-         * A Boolean value that specifies whether the query uses the FAST Query Language (FQL).
-         */
-        EnableFql?: boolean;
-        /**
-         * A Boolean value that specifies whether the phonetic forms of the query terms are used to find matches.
-         */
-        EnablePhonetic?: boolean;
-        /**
-         * A Boolean value that specifies whether to perform result type processing for the query.
-         */
-        BypassResultTypes?: boolean;
-        /**
-         * A Boolean value that specifies whether to return best bet results for the query.
-         * This parameter is used only when EnableQueryRules is set to true, otherwise it is ignored.
-         */
-        ProcessBestBets?: boolean;
-        /**
-         * A Boolean value that specifies whether to enable query rules for the query.
-         */
-        EnableQueryRules?: boolean;
-        /**
-         * A Boolean value that specifies whether to sort search results.
-         */
-        EnableSorting?: boolean;
-        /**
-         * Specifies whether to return block rank log information in the BlockRankLog property of the interleaved result table.
-         * A block rank log contains the textual information on the block score and the documents that were de-duplicated.
-         */
-        GenerateBlockRankLog?: boolean;
-        /**
-         * The result source ID to use for executing the search query.
-         */
-        SourceId?: string;
-        /**
-         * The ID of the ranking model to use for the query.
-         */
-        RankingModelId?: string;
-        /**
-         * The first row that is included in the search results that are returned.
-         * You use this parameter when you want to implement paging for search results.
-         */
-        StartRow?: number;
-        /**
-         * The maximum number of rows overall that are returned in the search results.
-         * Compared to RowsPerPage, RowLimit is the maximum number of rows returned overall.
-         */
-        RowLimit?: number;
-        /**
-         * The maximum number of rows to return per page.
-         * Compared to RowLimit, RowsPerPage refers to the maximum number of rows to return per page,
-         * and is used primarily when you want to implement paging for search results.
-         */
-        RowsPerPage?: number;
-        /**
-         * The managed properties to return in the search results.
-         */
-        SelectProperties?: string[];
-        /**
-         * The locale ID (LCID) for the query.
-         */
-        Culture?: number;
-        /**
-         * The set of refinement filters used when issuing a refinement query (FQL)
-         */
-        RefinementFilters?: string[];
-        /**
-         * The set of refiners to return in a search result.
-         */
-        Refiners?: string;
-        /**
-         * The additional query terms to append to the query.
-         */
-        HiddenConstraints?: string;
-        /**
-         * The list of properties by which the search results are ordered.
-         */
-        SortList?: Sort[];
-        /**
-         * The amount of time in milliseconds before the query request times out.
-         */
-        Timeout?: number;
-        /**
-         * The properties to highlight in the search result summary when the property value matches the search terms entered by the user.
-         */
-        HithighlightedProperties?: string[];
-        /**
-         * The type of the client that issued the query.
-         */
-        ClientType?: string;
-        /**
-         * The GUID for the user who submitted the search query.
-         */
-        PersonalizationData?: string;
-        /**
-         * The URL for the search results page.
-         */
-        ResultsURL?: string;
-        /**
-         * Custom tags that identify the query. You can specify multiple query tags
-         */
-        QueryTag?: string[];
-        /**
-         * Properties to be used to configure the search query
-         */
-        Properties?: SearchProperty[];
-        /**
-         *  A Boolean value that specifies whether to return personal favorites with the search results.
-         */
-        ProcessPersonalFavorites?: boolean;
-        /**
-         * The location of the queryparametertemplate.xml file. This file is used to enable anonymous users to make Search REST queries.
-         */
-        QueryTemplatePropertiesUrl?: string;
-        /**
-         * Special rules for reordering search results.
-         * These rules can specify that documents matching certain conditions are ranked higher or lower in the results.
-         * This property applies only when search results are sorted based on rank.
-         */
-        ReorderingRules?: ReorderingRule[];
-        /**
-         * The number of properties to show hit highlighting for in the search results.
-         */
-        HitHighlightedMultivaluePropertyLimit?: number;
-        /**
-         * A Boolean value that specifies whether the hit highlighted properties can be ordered.
-         */
-        EnableOrderingHitHighlightedProperty?: boolean;
-        /**
-         * The managed properties that are used to determine how to collapse individual search results.
-         * Results are collapsed into one or a specified number of results if they match any of the individual collapse specifications.
-         * In a collapse specification, results are collapsed if their properties match all individual properties in the collapse specification.
-         */
-        CollapseSpecification?: string;
-        /**
-         * The locale identifier (LCID) of the user interface
-         */
-        UIlanguage?: number;
-        /**
-         * The preferred number of characters to display in the hit-highlighted summary generated for a search result.
-         */
-        DesiredSnippetLength?: number;
-        /**
-         * The maximum number of characters to display in the hit-highlighted summary generated for a search result.
-         */
-        MaxSnippetLength?: number;
-        /**
-         * The number of characters to display in the result summary for a search result.
-         */
-        SummaryLength?: number;
-    }
-    /**
-     * Describes the search API
-     *
-     */
-    export class Search extends QueryableInstance {
-        /**
-         * Creates a new instance of the Search class
-         *
-         * @param baseUrl The url for the search context
-         * @param query The SearchQuery object to execute
-         */
-        constructor(baseUrl: string | Queryable, path?: string);
-        /**
-         * .......
-         * @returns Promise
-         */
-        execute(query: SearchQuery): Promise<SearchResults>;
-    }
-    /**
-     * Describes the SearchResults class, which returns the formatted and raw version of the query response
-     */
-    export class SearchResults {
-        PrimarySearchResults: any;
-        RawSearchResults: any;
-        RowCount: number;
-        TotalRows: number;
-        TotalRowsIncludingDuplicates: number;
-        ElapsedTime: number;
-        /**
-         * Creates a new instance of the SearchResult class
-         *
-         */
-        constructor(rawResponse: any);
-        /**
-         * Formats a search results array
-         *
-         * @param rawResults The array to process
-         */
-        protected formatSearchResults(rawResults: Array<any> | any): SearchResult[];
-    }
-    /**
-     * Describes the SearchResult class
-     */
-    export class SearchResult {
-        /**
-         * Creates a new instance of the SearchResult class
-         *
-         */
-        constructor(rawItem: Array<any> | any);
-    }
-    /**
-     * Defines how search results are sorted.
-     */
-    export interface Sort {
-        /**
-         * The name for a property by which the search results are ordered.
-         */
-        Property: string;
-        /**
-         * The direction in which search results are ordered.
-         */
-        Direction: SortDirection;
-    }
-    /**
-     * Defines one search property
-     */
-    export interface SearchProperty {
-        Name: string;
-        Value: SearchPropertyValue;
-    }
-    /**
-     * Defines one search property value
-     */
-    export interface SearchPropertyValue {
-        StrVal: string;
-        QueryPropertyValueTypeIndex: QueryPropertyValueType;
-    }
-    /**
-     * defines the SortDirection enum
-     */
-    export enum SortDirection {
-        Ascending = 0,
-        Descending = 1,
-        FQLFormula = 2,
-    }
-    /**
-     * Defines how ReorderingRule interface, used for reordering results
-     */
-    export interface ReorderingRule {
-        /**
-         * The value to match on
-         */
-        MatchValue: string;
-        /**
-         * The rank boosting
-         */
-        Boost: number;
-        /**
-        * The rank boosting
-        */
-        MatchType: ReorderingRuleMatchType;
-    }
-    /**
-     * defines the ReorderingRuleMatchType  enum
-     */
-    export enum ReorderingRuleMatchType {
-        ResultContainsKeyword = 0,
-        TitleContainsKeyword = 1,
-        TitleMatchesKeyword = 2,
-        UrlStartsWith = 3,
-        UrlExactlyMatches = 4,
-        ContentTypeIs = 5,
-        FileExtensionMatches = 6,
-        ResultHasTag = 7,
-        ManualCondition = 8,
-    }
-    /**
-     * Specifies the type value for the property
-     */
-    export enum QueryPropertyValueType {
-        None = 0,
-        StringType = 1,
-        Int32TYpe = 2,
-        BooleanType = 3,
-        StringArrayType = 4,
-        UnSupportedType = 5,
-    }
-}
-declare module "sharepoint/rest/searchsuggest" {
-    import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
-    /**
-     * Defines a query execute against the search/suggest endpoint (see https://msdn.microsoft.com/en-us/library/office/dn194079.aspx)
-     */
-    export interface SearchSuggestQuery {
-        /**
-         * A string that contains the text for the search query.
-         */
-        querytext: string;
-        /**
-         * The number of query suggestions to retrieve. Must be greater than zero (0). The default value is 5.
-         */
-        count?: number;
-        /**
-         * The number of personal results to retrieve. Must be greater than zero (0). The default value is 5.
-         */
-        personalCount?: number;
-        /**
-         * A Boolean value that specifies whether to retrieve pre-query or post-query suggestions. true to return pre-query suggestions; otherwise, false. The default value is false.
-         */
-        preQuery?: boolean;
-        /**
-         * A Boolean value that specifies whether to hit-highlight or format in bold the query suggestions. true to format in bold the terms in the returned query suggestions
-         * that match terms in the specified query; otherwise, false. The default value is true.
-         */
-        hitHighlighting?: boolean;
-        /**
-         * A Boolean value that specifies whether to capitalize the first letter in each term in the returned query suggestions. true to capitalize the first letter in each term;
-         * otherwise, false. The default value is false.
-         */
-        capitalize?: boolean;
-        /**
-         * The locale ID (LCID) for the query (see https://msdn.microsoft.com/en-us/library/cc233982.aspx).
-         */
-        culture?: string;
-        /**
-         * A Boolean value that specifies whether stemming is enabled. true to enable stemming; otherwise, false. The default value is true.
-         */
-        stemming?: boolean;
-        /**
-         * A Boolean value that specifies whether to include people names in the returned query suggestions. true to include people names in the returned query suggestions;
-         * otherwise, false. The default value is true.
-         */
-        includePeople?: boolean;
-        /**
-         * A Boolean value that specifies whether to turn on query rules for this query. true to turn on query rules; otherwise, false. The default value is true.
-         */
-        queryRules?: boolean;
-        /**
-         * A Boolean value that specifies whether to return query suggestions for prefix matches. true to return query suggestions based on prefix matches, otherwise, false when
-         * query suggestions should match the full query word.
-         */
-        prefixMatch?: boolean;
-    }
-    export class SearchSuggest extends QueryableInstance {
-        constructor(baseUrl: string | Queryable, path?: string);
-        execute(query: SearchSuggestQuery): Promise<SearchSuggestResult>;
-        private mapQueryToQueryString(query);
-    }
-    export class SearchSuggestResult {
-        PeopleNames: string[];
-        PersonalResults: PersonalResultSuggestion[];
-        Queries: any[];
-        constructor(json: any);
-    }
-    export interface PersonalResultSuggestion {
-        HighlightedTitle?: string;
-        IsBestBet?: boolean;
-        Title?: string;
-        TypeId?: string;
-        Url?: string;
-    }
-}
-declare module "sharepoint/rest/site" {
-    import { Queryable, QueryableInstance } from "sharepoint/rest/queryable";
-    import { Web } from "sharepoint/rest/webs";
-    import { UserCustomActions } from "sharepoint/rest/usercustomactions";
-    import { ContextInfo, DocumentLibraryInformation } from "sharepoint/rest/types";
-    import { ODataBatch } from "sharepoint/rest/odata";
+declare module "sharepoint/site" {
+    import { Queryable, QueryableInstance } from "sharepoint/queryable";
+    import { Web } from "sharepoint/webs";
+    import { UserCustomActions } from "sharepoint/usercustomactions";
+    import { ContextInfo, DocumentLibraryInformation } from "sharepoint/types";
+    import { ODataBatch } from "sharepoint/odata";
+    import { Features } from "sharepoint/features";
     /**
      * Describes a site collection
      *
@@ -3857,6 +3866,11 @@ declare module "sharepoint/rest/site" {
          *
          */
         readonly rootWeb: Web;
+        /**
+         * Gets the active features for this site
+         *
+         */
+        readonly features: Features;
         /**
          * Get all custom actions on a site collection
          *
@@ -3899,9 +3913,9 @@ declare module "utils/files" {
      */
     export function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer>;
 }
-declare module "sharepoint/rest/userprofiles" {
-    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/rest/queryable";
-    import * as Types from "sharepoint/rest/types";
+declare module "sharepoint/userprofiles" {
+    import { Queryable, QueryableInstance, QueryableCollection } from "sharepoint/queryable";
+    import * as Types from "sharepoint/types";
     export class UserProfileQuery extends QueryableInstance {
         private profileLoader;
         constructor(baseUrl: string | Queryable, path?: string);
@@ -4016,16 +4030,16 @@ declare module "sharepoint/rest/userprofiles" {
          *
          * @param share true to make all social data public; false to make all social data private.
          */
-        shareAllSocialData(share: any): Promise<void>;
+        shareAllSocialData(share: boolean): Promise<void>;
     }
 }
-declare module "sharepoint/rest/rest" {
-    import { SearchQuery, SearchResults } from "sharepoint/rest/search";
-    import { SearchSuggestQuery, SearchSuggestResult } from "sharepoint/rest/searchsuggest";
-    import { Site } from "sharepoint/rest/site";
-    import { Web } from "sharepoint/rest/webs";
-    import { UserProfileQuery } from "sharepoint/rest/userprofiles";
-    import { ODataBatch } from "sharepoint/rest/odata";
+declare module "sharepoint/rest" {
+    import { SearchQuery, SearchResults } from "sharepoint/search";
+    import { SearchSuggestQuery, SearchSuggestResult } from "sharepoint/searchsuggest";
+    import { Site } from "sharepoint/site";
+    import { Web } from "sharepoint/webs";
+    import { UserProfileQuery } from "sharepoint/userprofiles";
+    import { ODataBatch } from "sharepoint/odata";
     /**
      * Root of the SharePoint REST module
      */
@@ -4087,41 +4101,181 @@ declare module "sharepoint/rest/rest" {
         private _cdImpl<T>(factory, addInWebUrl, hostWebUrl, urlPart);
     }
 }
-declare module "sharepoint/rest/index" {
-    export * from "sharepoint/rest/caching";
-    export { FieldAddResult, FieldUpdateResult } from "sharepoint/rest/fields";
-    export { CheckinType, FileAddResult, WebPartsPersonalizationScope, MoveOperations, TemplateFileType, TextFileParser, BlobFileParser, BufferFileParser, ChunkedFileUploadProgressData } from "sharepoint/rest/files";
-    export { FolderAddResult } from "sharepoint/rest/folders";
-    export { ItemAddResult, ItemUpdateResult, PagedItemCollection } from "sharepoint/rest/items";
-    export { ListAddResult, ListUpdateResult, ListEnsureResult } from "sharepoint/rest/lists";
-    export { extractOdataId, ODataParser, ODataParserBase, ODataDefaultParser, ODataRaw, ODataValue, ODataEntity, ODataEntityArray } from "sharepoint/rest/odata";
-    export { RoleDefinitionUpdateResult, RoleDefinitionAddResult, RoleDefinitionBindings } from "sharepoint/rest/roles";
-    export { Search, SearchProperty, SearchPropertyValue, SearchQuery, SearchResult, SearchResults, Sort, SortDirection, ReorderingRule, ReorderingRuleMatchType, QueryPropertyValueType } from "sharepoint/rest/search";
-    export { SearchSuggest, SearchSuggestQuery, SearchSuggestResult, PersonalResultSuggestion } from "sharepoint/rest/searchsuggest";
-    export { Site } from "sharepoint/rest/site";
-    export { SiteGroupAddResult } from "sharepoint/rest/sitegroups";
-    export { UserUpdateResult, UserProps } from "sharepoint/rest/siteusers";
-    export { SubscriptionAddResult, SubscriptionUpdateResult } from "sharepoint/rest/subscriptions";
-    export * from "sharepoint/rest/types";
-    export { UserCustomActionAddResult, UserCustomActionUpdateResult } from "sharepoint/rest/usercustomactions";
-    export { ViewAddResult, ViewUpdateResult } from "sharepoint/rest/views";
-    export { Web, WebAddResult, WebUpdateResult, GetCatalogResult } from "sharepoint/rest/webs";
+declare module "sharepoint/index" {
+    export * from "sharepoint/caching";
+    export { AttachmentFileAddResult } from "sharepoint/attachmentfiles";
+    export { FieldAddResult, FieldUpdateResult } from "sharepoint/fields";
+    export { CheckinType, FileAddResult, WebPartsPersonalizationScope, MoveOperations, TemplateFileType, ChunkedFileUploadProgressData } from "sharepoint/files";
+    export { FeatureAddResult } from "sharepoint/features";
+    export { FolderAddResult } from "sharepoint/folders";
+    export { Item, ItemAddResult, ItemUpdateResult, ItemUpdateResultData, PagedItemCollection } from "sharepoint/items";
+    export { NavigationNodeAddResult, NavigationNodeUpdateResult, NavigationNodes, NavigationNode } from "sharepoint/navigation";
+    export { List, ListAddResult, ListUpdateResult, ListEnsureResult } from "sharepoint/lists";
+    export { extractOdataId, ODataParser, ODataParserBase, ODataDefaultParser, ODataRaw, ODataValue, ODataEntity, ODataEntityArray, TextFileParser, BlobFileParser, BufferFileParser, JSONFileParser } from "sharepoint/odata";
+    export { RoleDefinitionUpdateResult, RoleDefinitionAddResult, RoleDefinitionBindings } from "sharepoint/roles";
+    export { Search, SearchProperty, SearchPropertyValue, SearchQuery, SearchResult, SearchResults, Sort, SortDirection, ReorderingRule, ReorderingRuleMatchType, QueryPropertyValueType } from "sharepoint/search";
+    export { SearchSuggest, SearchSuggestQuery, SearchSuggestResult, PersonalResultSuggestion } from "sharepoint/searchsuggest";
+    export { Site } from "sharepoint/site";
+    export { SiteGroupAddResult } from "sharepoint/sitegroups";
+    export { UserUpdateResult } from "sharepoint/siteusers";
+    export { SubscriptionAddResult, SubscriptionUpdateResult } from "sharepoint/subscriptions";
+    export * from "sharepoint/types";
+    export { UserCustomActionAddResult, UserCustomActionUpdateResult } from "sharepoint/usercustomactions";
+    export { ViewAddResult, ViewUpdateResult } from "sharepoint/views";
+    export { Web, WebAddResult, WebUpdateResult, GetCatalogResult } from "sharepoint/webs";
+}
+declare module "net/sprequestexecutorclient" {
+    import { HttpClientImpl, FetchOptions } from "net/httpclient";
+    /**
+     * Makes requests using the SP.RequestExecutor library.
+     */
+    export class SPRequestExecutorClient implements HttpClientImpl {
+        /**
+         * Fetches a URL using the SP.RequestExecutor library.
+         */
+        fetch(url: string, options: FetchOptions): Promise<Response>;
+        /**
+         * Converts a SharePoint REST API response to a fetch API response.
+         */
+        private convertToResponse;
+    }
+}
+declare module "net/nodefetchclient" {
+    import { HttpClientImpl } from "net/httpclient";
+    export interface AuthToken {
+        token_type: string;
+        expires_in: string;
+        not_before: string;
+        expires_on: string;
+        resource: string;
+        access_token: string;
+    }
+    /**
+     * Fetch client for use within nodejs, requires you register a client id and secret with app only permissions
+     */
+    export class NodeFetchClient implements HttpClientImpl {
+        siteUrl: string;
+        private _clientId;
+        private _clientSecret;
+        private _realm;
+        private static SharePointServicePrincipal;
+        private token;
+        constructor(siteUrl: string, _clientId: string, _clientSecret: string, _realm?: string);
+        fetch(url: string, options: any): Promise<Response>;
+        /**
+         * Gets an add-in only authentication token based on the supplied site url, client id and secret
+         */
+        getAddInOnlyAccessToken(): Promise<AuthToken>;
+        private getRealm();
+        private getAuthUrl(realm);
+        private getFormattedPrincipal(principalName, hostName, realm);
+        private toDate(epoch);
+    }
+}
+declare module "configuration/providers/cachingConfigurationProvider" {
+    import { IConfigurationProvider } from "configuration/configuration";
+    import { TypedHash } from "collections/collections";
+    import * as storage from "utils/storage";
+    /**
+     * A caching provider which can wrap other non-caching providers
+     *
+     */
+    export default class CachingConfigurationProvider implements IConfigurationProvider {
+        private wrappedProvider;
+        private store;
+        private cacheKey;
+        /**
+         * Creates a new caching configuration provider
+         * @constructor
+         * @param {IConfigurationProvider} wrappedProvider Provider which will be used to fetch the configuration
+         * @param {string} cacheKey Key that will be used to store cached items to the cache
+         * @param {IPnPClientStore} cacheStore OPTIONAL storage, which will be used to store cached settings.
+         */
+        constructor(wrappedProvider: IConfigurationProvider, cacheKey: string, cacheStore?: storage.PnPClientStore);
+        /**
+         * Gets the wrapped configuration providers
+         *
+         * @return {IConfigurationProvider} Wrapped configuration provider
+         */
+        getWrappedProvider(): IConfigurationProvider;
+        /**
+         * Loads the configuration values either from the cache or from the wrapped provider
+         *
+         * @return {Promise<TypedHash<string>>} Promise of loaded configuration values
+         */
+        getConfiguration(): Promise<TypedHash<string>>;
+        private selectPnPCache();
+    }
+}
+declare module "configuration/providers/spListConfigurationProvider" {
+    import { IConfigurationProvider } from "configuration/configuration";
+    import { TypedHash } from "collections/collections";
+    import { default as CachingConfigurationProvider } from "configuration/providers/cachingConfigurationProvider";
+    import { Web } from "sharepoint/webs";
+    /**
+     * A configuration provider which loads configuration values from a SharePoint list
+     *
+     */
+    export default class SPListConfigurationProvider implements IConfigurationProvider {
+        private sourceWeb;
+        private sourceListTitle;
+        /**
+         * Creates a new SharePoint list based configuration provider
+         * @constructor
+         * @param {string} webUrl Url of the SharePoint site, where the configuration list is located
+         * @param {string} listTitle Title of the SharePoint list, which contains the configuration settings (optional, default = "config")
+         */
+        constructor(sourceWeb: Web, sourceListTitle?: string);
+        /**
+         * Gets the url of the SharePoint site, where the configuration list is located
+         *
+         * @return {string} Url address of the site
+         */
+        readonly web: Web;
+        /**
+         * Gets the title of the SharePoint list, which contains the configuration settings
+         *
+         * @return {string} List title
+         */
+        readonly listTitle: string;
+        /**
+         * Loads the configuration values from the SharePoint list
+         *
+         * @return {Promise<TypedHash<string>>} Promise of loaded configuration values
+         */
+        getConfiguration(): Promise<TypedHash<string>>;
+        /**
+         * Wraps the current provider in a cache enabled provider
+         *
+         * @return {CachingConfigurationProvider} Caching providers which wraps the current provider
+         */
+        asCaching(): CachingConfigurationProvider;
+    }
+}
+declare module "configuration/providers/index" {
+    export { default as CachingConfigurationProvider } from "configuration/providers/cachingConfigurationProvider";
+    export { default as SPListConfigurationProvider } from "configuration/providers/spListConfigurationProvider";
 }
 declare module "types/index" {
-    export * from "sharepoint/rest/index";
-    export { FetchOptions, HttpClient } from "net/httpclient";
+    export * from "sharepoint/index";
+    export { FetchOptions, HttpClient, HttpClientImpl } from "net/httpclient";
+    export { SPRequestExecutorClient } from "net/sprequestexecutorclient";
+    export { NodeFetchClient } from "net/nodefetchclient";
+    export { FetchClient } from "net/fetchclient";
     export { IConfigurationProvider } from "configuration/configuration";
-    export { NodeClientData, LibraryConfiguration } from "configuration/pnplibconfig";
+    export * from "configuration/providers/index";
+    export { LibraryConfiguration } from "configuration/pnplibconfig";
     export { TypedHash, Dictionary } from "collections/collections";
     export { Util } from "utils/util";
     export * from "utils/logging";
+    export * from "utils/exceptions";
 }
 declare module "pnp" {
     import { Util } from "utils/util";
     import { PnPClientStorage } from "utils/storage";
     import { Settings } from "configuration/configuration";
     import { Logger } from "utils/logging";
-    import { Rest } from "sharepoint/rest/rest";
+    import { Rest } from "sharepoint/rest";
     import { LibraryConfiguration } from "configuration/pnplibconfig";
     /**
      * Root class of the Patterns and Practices namespace, provides an entry point to the library
@@ -4163,24 +4317,6 @@ declare module "pnp" {
         util: typeof Util;
     };
     export default Def;
-}
-declare module "net/nodefetchclientbrowser" {
-    import { HttpClientImpl } from "net/httpclient";
-    /**
-     * This module is substituted for the NodeFetchClient.ts during the packaging process. This helps to reduce the pnp.js file size by
-     * not including all of the node dependencies
-     */
-    export class NodeFetchClient implements HttpClientImpl {
-        siteUrl: string;
-        private _clientId;
-        private _clientSecret;
-        private _realm;
-        constructor(siteUrl: string, _clientId: string, _clientSecret: string, _realm?: string);
-        /**
-         * Always throws an error that NodeFetchClient is not supported for use in the browser
-         */
-        fetch(url: string, options: any): Promise<Response>;
-    }
 }
 declare module "types/locale" {
     export enum Locale {
@@ -4424,534 +4560,16 @@ declare module "types/locale" {
         HIDHumanInterfaceDevice = 1279,
     }
 }
-declare module "sharepoint/provisioning/provisioningstep" {
+declare module "net/nodefetchclientbrowser" {
+    import { HttpClientImpl } from "net/httpclient";
     /**
-     * Describes a ProvisioningStep
+     * This module is substituted for the NodeFetchClient.ts during the packaging process. This helps to reduce the pnp.js file size by
+     * not including all of the node dependencies
      */
-    export class ProvisioningStep {
-        private name;
-        private index;
-        private objects;
-        private parameters;
-        private handler;
+    export class NodeFetchClient implements HttpClientImpl {
         /**
-         * Executes the ProvisioningStep function
-         *
-         * @param dependentPromise The promise the ProvisioningStep is dependent on
+         * Always throws an error that NodeFetchClient is not supported for use in the browser
          */
-        execute(dependentPromise?: any): any;
-        /**
-         * Creates a new instance of the ProvisioningStep class
-         */
-        constructor(name: string, index: number, objects: any, parameters: any, handler: any);
-    }
-}
-declare module "sharepoint/provisioning/util" {
-    export class Util {
-        /**
-         * Make URL relative to host
-         *
-         * @param url The URL to make relative
-         */
-        static getRelativeUrl(url: string): string;
-        /**
-         * Replaces URL tokens in a string
-         */
-        static replaceUrlTokens(url: string): string;
-        static encodePropertyKey(propKey: any): string;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objecthandlerbase" {
-    import { HttpClient } from "net/httpclient";
-    /**
-     * Describes the Object Handler Base
-     */
-    export class ObjectHandlerBase {
-        httpClient: HttpClient;
-        private name;
-        /**
-         * Creates a new instance of the ObjectHandlerBase class
-         */
-        constructor(name: string);
-        /**
-         * Provisioning objects
-         */
-        ProvisionObjects(objects: any, parameters?: any): Promise<{}>;
-        /**
-         * Writes to Logger when scope has started
-         */
-        scope_started(): void;
-        /**
-         * Writes to Logger when scope has stopped
-         */
-        scope_ended(): void;
-    }
-}
-declare module "sharepoint/provisioning/schema/inavigationnode" {
-    export interface INavigationNode {
-        Title: string;
-        Url: string;
-        Children: Array<INavigationNode>;
-    }
-}
-declare module "sharepoint/provisioning/schema/inavigation" {
-    import { INavigationNode } from "sharepoint/provisioning/schema/inavigationnode";
-    export interface INavigation {
-        UseShared: boolean;
-        QuickLaunch: Array<INavigationNode>;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectnavigation" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { INavigation } from "sharepoint/provisioning/schema/inavigation";
-    /**
-     * Describes the Navigation Object Handler
-     */
-    export class ObjectNavigation extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectNavigation class
-         */
-        constructor();
-        /**
-         * Provision Navigation nodes
-         *
-         * @param object The navigation settings and nodes to provision
-         */
-        ProvisionObjects(object: INavigation): Promise<{}>;
-        /**
-         * Retrieves the node with the given title from a collection of SP.NavigationNode
-         */
-        private getNodeFromCollectionByTitle(nodeCollection, title);
-        private ConfigureQuickLaunch(nodes, clientContext, httpClient, navigation);
-    }
-}
-declare module "sharepoint/provisioning/schema/IPropertyBagEntry" {
-    export interface IPropertyBagEntry {
-        Key: string;
-        Value: string;
-        Indexed: boolean;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectpropertybagentries" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { IPropertyBagEntry } from "sharepoint/provisioning/schema/IPropertyBagEntry";
-    /**
-     * Describes the Property Bag Entries Object Handler
-     */
-    export class ObjectPropertyBagEntries extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectPropertyBagEntries class
-         */
-        constructor();
-        /**
-         * Provision Property Bag Entries
-         *
-         * @param entries The entries to provision
-         */
-        ProvisionObjects(entries: Array<IPropertyBagEntry>): Promise<{}>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IFeature" {
-    export interface IFeature {
-        ID: string;
-        Deactivate: boolean;
-        Description: string;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectfeatures" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { IFeature } from "sharepoint/provisioning/schema/IFeature";
-    /**
-     * Describes the Features Object Handler
-     */
-    export class ObjectFeatures extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectFeatures class
-         */
-        constructor();
-        /**
-         * Provisioning features
-         *
-         * @paramm features The features to provision
-         */
-        ProvisionObjects(features: Array<IFeature>): Promise<{}>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IWebSettings" {
-    export interface IWebSettings {
-        WelcomePage: string;
-        AlternateCssUrl: string;
-        SaveSiteAsTemplateEnabled: boolean;
-        MasterUrl: string;
-        CustomMasterUrl: string;
-        RecycleBinEnabled: boolean;
-        TreeViewEnabled: boolean;
-        QuickLaunchEnabled: boolean;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectwebsettings" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { IWebSettings } from "sharepoint/provisioning/schema/IWebSettings";
-    /**
-     * Describes the Web Settings Object Handler
-     */
-    export class ObjectWebSettings extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectWebSettings class
-         */
-        constructor();
-        /**
-         * Provision Web Settings
-         *
-         * @param object The Web Settings to provision
-         */
-        ProvisionObjects(object: IWebSettings): Promise<{}>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IComposedLook" {
-    export interface IComposedLook {
-        ColorPaletteUrl: string;
-        FontSchemeUrl: string;
-        BackgroundImageUrl: string;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectcomposedlook" {
-    import { IComposedLook } from "sharepoint/provisioning/schema/IComposedLook";
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    /**
-     * Describes the Composed Look Object Handler
-     */
-    export class ObjectComposedLook extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectComposedLook class
-         */
-        constructor();
-        /**
-         * Provisioning Composed Look
-         *
-         * @param object The Composed Look to provision
-         */
-        ProvisionObjects(object: IComposedLook): Promise<{}>;
-    }
-}
-declare module "sharepoint/provisioning/schema/ICustomAction" {
-    export interface ICustomAction {
-        CommandUIExtension: any;
-        Description: string;
-        Group: string;
-        ImageUrl: string;
-        Location: string;
-        Name: string;
-        RegistrationId: string;
-        RegistrationType: any;
-        Rights: any;
-        ScriptBlock: string;
-        ScriptSrc: string;
-        Sequence: number;
-        Title: string;
-        Url: string;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectcustomactions" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { ICustomAction } from "sharepoint/provisioning/schema/ICustomAction";
-    /**
-     * Describes the Custom Actions Object Handler
-     */
-    export class ObjectCustomActions extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectCustomActions class
-         */
-        constructor();
-        /**
-         * Provisioning Custom Actions
-         *
-         * @param customactions The Custom Actions to provision
-         */
-        ProvisionObjects(customactions: Array<ICustomAction>): Promise<{}>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IContents" {
-    export interface IContents {
-        Xml: string;
-        FileUrl: string;
-    }
-}
-declare module "sharepoint/provisioning/schema/IWebPart" {
-    import { IContents } from "sharepoint/provisioning/schema/IContents";
-    export interface IWebPart {
-        Title: string;
-        Order: number;
-        Zone: string;
-        Row: number;
-        Column: number;
-        Contents: IContents;
-    }
-}
-declare module "sharepoint/provisioning/schema/IHiddenView" {
-    export interface IHiddenView {
-        List: string;
-        Url: string;
-        Paged: boolean;
-        Query: string;
-        RowLimit: number;
-        Scope: number;
-        ViewFields: Array<string>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IFile" {
-    import { IWebPart } from "sharepoint/provisioning/schema/IWebPart";
-    import { IHiddenView } from "sharepoint/provisioning/schema/IHiddenView";
-    export interface IFile {
-        Overwrite: boolean;
-        Dest: string;
-        Src: string;
-        Properties: Object;
-        RemoveExistingWebParts: boolean;
-        WebParts: Array<IWebPart>;
-        Views: Array<IHiddenView>;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectfiles" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { IFile } from "sharepoint/provisioning/schema/IFile";
-    /**
-     * Describes the Files Object Handler
-     */
-    export class ObjectFiles extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectFiles class
-         */
-        constructor();
-        /**
-         * Provisioning Files
-         *
-         * @param objects The files to provisiion
-         */
-        ProvisionObjects(objects: Array<IFile>): Promise<{}>;
-        private RemoveWebPartsFromFileIfSpecified(clientContext, limitedWebPartManager, shouldRemoveExisting);
-        private GetWebPartXml(webParts);
-        private AddWebPartsToWebPartPage(dest, src, webParts, shouldRemoveExisting);
-        private ApplyFileProperties(dest, fileProperties);
-        private GetViewFromCollectionByUrl(viewCollection, url);
-        private ModifyHiddenViews(objects);
-        private GetFolderFromFilePath(filePath);
-        private GetFilenameFromFilePath(filePath);
-    }
-}
-declare module "sharepoint/provisioning/sequencer/sequencer" {
-    /**
-     * Descibes a Sequencer
-     */
-    export class Sequencer {
-        private functions;
-        private parameter;
-        private scope;
-        /**
-         * Creates a new instance of the Sequencer class, and declare private variables
-         */
-        constructor(functions: Array<any>, parameter: any, scope: any);
-        /**
-         * Executes the functions in sequence using DeferredObject
-         */
-        execute(progressFunction?: (s: Sequencer, index: number, functions: any[]) => void): Promise<void>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IFolder" {
-    export interface IFolder {
-        Name: string;
-        DefaultValues: Object;
-    }
-}
-declare module "sharepoint/provisioning/schema/IListInstanceFieldRef" {
-    export interface IListInstanceFieldRef {
-        Name: string;
-    }
-}
-declare module "sharepoint/provisioning/schema/IField" {
-    export interface IField {
-        ShowInDisplayForm: boolean;
-        ShowInEditForm: boolean;
-        ShowInNewForm: boolean;
-        CanBeDeleted: boolean;
-        DefaultValue: string;
-        Description: string;
-        EnforceUniqueValues: boolean;
-        Direction: string;
-        EntityPropertyName: string;
-        FieldTypeKind: any;
-        Filterable: boolean;
-        Group: string;
-        Hidden: boolean;
-        ID: string;
-        Indexed: boolean;
-        InternalName: string;
-        JsLink: string;
-        ReadOnlyField: boolean;
-        Required: boolean;
-        SchemaXml: string;
-        StaticName: string;
-        Title: string;
-        TypeAsString: string;
-        TypeDisplayName: string;
-        TypeShortDescription: string;
-        ValidationFormula: string;
-        ValidationMessage: string;
-        Type: string;
-        Formula: string;
-    }
-}
-declare module "sharepoint/provisioning/schema/IView" {
-    export interface IView {
-        Title: string;
-        Paged: boolean;
-        PersonalView: boolean;
-        Query: string;
-        RowLimit: number;
-        Scope: number;
-        SetAsDefaultView: boolean;
-        ViewFields: Array<string>;
-        ViewTypeKind: string;
-    }
-}
-declare module "sharepoint/provisioning/schema/IRoleAssignment" {
-    export interface IRoleAssignment {
-        Principal: string;
-        RoleDefinition: any;
-    }
-}
-declare module "sharepoint/provisioning/schema/ISecurity" {
-    import { IRoleAssignment } from "sharepoint/provisioning/schema/IRoleAssignment";
-    export interface ISecurity {
-        BreakRoleInheritance: boolean;
-        CopyRoleAssignments: boolean;
-        ClearSubscopes: boolean;
-        RoleAssignments: Array<IRoleAssignment>;
-    }
-}
-declare module "sharepoint/provisioning/schema/IContentTypeBinding" {
-    export interface IContentTypeBinding {
-        ContentTypeId: string;
-    }
-}
-declare module "sharepoint/provisioning/schema/IListInstance" {
-    import { IFolder } from "sharepoint/provisioning/schema/IFolder";
-    import { IListInstanceFieldRef } from "sharepoint/provisioning/schema/IListInstanceFieldRef";
-    import { IField } from "sharepoint/provisioning/schema/IField";
-    import { IView } from "sharepoint/provisioning/schema/IView";
-    import { ISecurity } from "sharepoint/provisioning/schema/ISecurity";
-    import { IContentTypeBinding } from "sharepoint/provisioning/schema/IContentTypeBinding";
-    export interface IListInstance {
-        Title: string;
-        Url: string;
-        Description: string;
-        DocumentTemplate: string;
-        OnQuickLaunch: boolean;
-        TemplateType: number;
-        EnableVersioning: boolean;
-        EnableMinorVersions: boolean;
-        EnableModeration: boolean;
-        EnableFolderCreation: boolean;
-        EnableAttachments: boolean;
-        RemoveExistingContentTypes: boolean;
-        RemoveExistingViews: boolean;
-        NoCrawl: boolean;
-        DefaultDisplayFormUrl: string;
-        DefaultEditFormUrl: string;
-        DefaultNewFormUrl: string;
-        DraftVersionVisibility: string;
-        ImageUrl: string;
-        Hidden: boolean;
-        ForceCheckout: boolean;
-        ContentTypeBindings: Array<IContentTypeBinding>;
-        FieldRefs: Array<IListInstanceFieldRef>;
-        Fields: Array<IField>;
-        Folders: Array<IFolder>;
-        Views: Array<IView>;
-        DataRows: Array<Object>;
-        Security: ISecurity;
-    }
-}
-declare module "sharepoint/provisioning/objecthandlers/objectlists" {
-    import { ObjectHandlerBase } from "sharepoint/provisioning/objecthandlers/objecthandlerbase";
-    import { IListInstance } from "sharepoint/provisioning/schema/IListInstance";
-    /**
-     * Describes the Lists Object Handler
-     */
-    export class ObjectLists extends ObjectHandlerBase {
-        /**
-         * Creates a new instance of the ObjectLists class
-         */
-        constructor();
-        /**
-         * Provision Lists
-         *
-         * @param objects The lists to provision
-         */
-        ProvisionObjects(objects: Array<IListInstance>): Promise<{}>;
-        private EnsureLocationBasedMetadataDefaultsReceiver(clientContext, list);
-        private CreateFolders(params);
-        private ApplyContentTypeBindings(params);
-        private ApplyListInstanceFieldRefs(params);
-        private ApplyFields(params);
-        private ApplyLookupFields(params);
-        private GetFieldXmlAttr(fieldXml, attr);
-        private GetFieldXml(field, lists, list);
-        private ApplyListSecurity(params);
-        private CreateViews(params);
-        private InsertDataRows(params);
-    }
-}
-declare module "sharepoint/provisioning/schema/ISiteSchema" {
-    import { IListInstance } from "sharepoint/provisioning/schema/IListInstance";
-    import { ICustomAction } from "sharepoint/provisioning/schema/ICustomAction";
-    import { IFeature } from "sharepoint/provisioning/schema/IFeature";
-    import { IFile } from "sharepoint/provisioning/schema/IFile";
-    import { INavigation } from "sharepoint/provisioning/schema/inavigation";
-    import { IComposedLook } from "sharepoint/provisioning/schema/IComposedLook";
-    import { IWebSettings } from "sharepoint/provisioning/schema/IWebSettings";
-    export interface SiteSchema {
-        Lists: Array<IListInstance>;
-        Files: Array<IFile>;
-        Navigation: INavigation;
-        CustomActions: Array<ICustomAction>;
-        ComposedLook: IComposedLook;
-        PropertyBagEntries: Object;
-        Parameters: Object;
-        WebSettings: IWebSettings;
-        Features: Array<IFeature>;
-    }
-}
-declare module "sharepoint/provisioning/provisioning" {
-    /**
-     * Root class of Provisioning
-     */
-    export class Provisioning {
-        private handlers;
-        private httpClient;
-        private startTime;
-        private queueItems;
-        /**
-         * Creates a new instance of the Provisioning class
-         */
-        constructor();
-        /**
-         * Applies a JSON template to the current web
-         *
-         * @param path URL to the template file
-         */
-        applyTemplate(path: string): Promise<any>;
-        /**
-         * Starts the provisioning
-         *
-         * @param json The parsed template in JSON format
-         * @param queue Array of Object Handlers to run
-         */
-        private start(json, queue);
-    }
-}
-declare module "sharepoint/provisioning/schema/IContentType" {
-    export interface IContentType {
-        Name: string;
+        fetch(): Promise<Response>;
     }
 }

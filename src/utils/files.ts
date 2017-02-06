@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Reads a blob as text
  * 
@@ -28,18 +26,23 @@ function readBlobAs<T>(blob: Blob, mode: "string" | "buffer"): Promise<T> {
 
     return new Promise<T>((resolve, reject) => {
 
-        let reader = new FileReader();
-        reader.onload = (e: FileReaderEvent<T>) => {
-            resolve(e.target.result);
-        };
+        try {
 
-        switch (mode) {
-            case "string":
-                reader.readAsText(blob);
-                break;
-            case "buffer":
-                reader.readAsArrayBuffer(blob);
-                break;
+            let reader = new FileReader();
+            reader.onload = (e: FileReaderEvent<T>) => {
+                resolve(e.target.result);
+            };
+
+            switch (mode) {
+                case "string":
+                    reader.readAsText(blob);
+                    break;
+                case "buffer":
+                    reader.readAsArrayBuffer(blob);
+                    break;
+            }
+        } catch (e) {
+            reject(e);
         }
     });
 }

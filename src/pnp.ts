@@ -1,10 +1,8 @@
-"use strict";
-
 import { Util } from "./utils/util";
 import { PnPClientStorage } from "./utils/storage";
 import { Settings } from "./configuration/configuration";
 import { Logger } from "./utils/logging";
-import { Rest } from "./sharepoint/rest/rest";
+import { Rest } from "./sharepoint/rest";
 import { setRuntimeConfig, LibraryConfiguration } from "./configuration/pnplibconfig";
 
 /**

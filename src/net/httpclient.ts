@@ -1,15 +1,11 @@
-"use strict";
-
-import { FetchClient } from "./fetchclient";
 import { DigestCache } from "./digestcache";
 import { Util } from "../utils/util";
 import { RuntimeConfig } from "../configuration/pnplibconfig";
-import { SPRequestExecutorClient } from "./sprequestexecutorclient";
-import { NodeFetchClient } from "./nodefetchclient";
+import { APIUrlException } from "../utils/exceptions";
 
 export interface FetchOptions {
     method?: string;
-    headers?: HeadersInit | { [index: string]: string };
+    headers?: string[][] | { [key: string]: string };
     body?: BodyInit;
     mode?: string | RequestMode;
     credentials?: string | RequestCredentials;
@@ -22,13 +18,11 @@ export class HttpClient {
     private _impl: HttpClientImpl;
 
     constructor() {
-        this._impl = this.getFetchImpl();
+        this._impl = RuntimeConfig.fetchClientFactory();
         this._digestCache = new DigestCache(this);
     }
 
     public fetch(url: string, options: FetchOptions = {}): Promise<Response> {
-
-        let self = this;
 
         let opts = Util.extend(options, { cache: "no-cache", credentials: "same-origin" }, true);
 
@@ -50,7 +44,7 @@ export class HttpClient {
         }
 
         if (!headers.has("X-ClientService-ClientTag")) {
-            headers.append("X-ClientService-ClientTag", "PnPCoreJS:1.0.6");
+            headers.append("X-ClientService-ClientTag", "PnPCoreJS:$$Version$$");
         }
 
         opts = Util.extend(opts, { headers: headers });
@@ -59,18 +53,18 @@ export class HttpClient {
             if (!headers.has("X-RequestDigest")) {
                 let index = url.indexOf("_api/");
                 if (index < 0) {
-                    throw new Error("Unable to determine API url");
+                    throw new APIUrlException();
                 }
                 let webUrl = url.substr(0, index);
                 return this._digestCache.getDigest(webUrl)
-                    .then(function (digest) {
+                    .then((digest) => {
                         headers.append("X-RequestDigest", digest);
-                        return self.fetchRaw(url, opts);
+                        return this.fetchRaw(url, opts);
                     });
             }
         }
 
-        return self.fetchRaw(url, opts);
+        return this.fetchRaw(url, opts);
     }
 
     public fetchRaw(url: string, options: FetchOptions = {}): Promise<Response> {
@@ -80,7 +74,7 @@ export class HttpClient {
         this.mergeHeaders(rawHeaders, options.headers);
         options = Util.extend(options, { headers: rawHeaders });
 
-        let retry = (ctx): void => {
+        let retry = (ctx: RetryContext): void => {
 
             this._impl.fetch(url, options).then((response) => ctx.resolve(response)).catch((response) => {
 
@@ -109,7 +103,7 @@ export class HttpClient {
 
         return new Promise((resolve, reject) => {
 
-            let retryContext = {
+            let retryContext: RetryContext = {
                 attempts: 0,
                 delay: 100,
                 reject: reject,
@@ -141,27 +135,24 @@ export class HttpClient {
         return this.fetch(url, opts);
     }
 
-    protected getFetchImpl(): HttpClientImpl {
-        if (RuntimeConfig.useSPRequestExecutor) {
-            return new SPRequestExecutorClient();
-        } else if (RuntimeConfig.useNodeFetchClient) {
-            let opts = RuntimeConfig.nodeRequestOptions;
-            return new NodeFetchClient(opts.siteUrl, opts.clientId, opts.clientSecret);
-        } else {
-            return new FetchClient();
-        }
-    }
-
     private mergeHeaders(target: Headers, source: any): void {
         if (typeof source !== "undefined" && source !== null) {
             let temp = <any>new Request("", { headers: source });
-            temp.headers.forEach((value, name) => {
+            temp.headers.forEach((value: string, name: string) => {
                 target.append(name, value);
             });
         }
     }
 }
 
+interface RetryContext {
+    attempts: number;
+    delay: number;
+    reject: (reason?: any) => void;
+    resolve: (value?: {} | PromiseLike<{}>) => void;
+    retryCount: number;
+};
+
 export interface HttpClientImpl {
-    fetch(url: string, options: any): Promise<Response>;
+    fetch(url: string, options: FetchOptions): Promise<Response>;
 }

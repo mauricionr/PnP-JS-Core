@@ -1,7 +1,6 @@
-"use strict";
-
-import { HttpClientImpl } from "./httpClient";
+import { HttpClientImpl, FetchOptions } from "./httpclient";
 import { Util } from "../utils/util";
+import { SPRequestExecutorUndefinedException } from "../utils/exceptions";
 
 /**
  * Makes requests using the SP.RequestExecutor library.
@@ -10,27 +9,26 @@ export class SPRequestExecutorClient implements HttpClientImpl {
     /**
      * Fetches a URL using the SP.RequestExecutor library.
      */
-    public fetch(url: string, options: any): Promise<Response> {
+    public fetch(url: string, options: FetchOptions): Promise<Response> {
         if (typeof SP === "undefined" || typeof SP.RequestExecutor === "undefined") {
-            throw new Error("SP.RequestExecutor is undefined. " +
-                "Load the SP.RequestExecutor.js library (/_layouts/15/SP.RequestExecutor.js) before loading the PnP JS Core library.");
+            throw new SPRequestExecutorUndefinedException();
         }
 
         let addinWebUrl = url.substring(0, url.indexOf("/_api")),
             executor = new SP.RequestExecutor(addinWebUrl),
             headers: { [key: string]: string; } = {},
-            iterator,
-            temp;
+            iterator: IterableIterator<[string, string]>,
+            temp: IteratorResult<[string, string]>;
 
         if (options.headers && options.headers instanceof Headers) {
-            iterator = options.headers.entries();
+            iterator = <IterableIterator<[string, string]>>options.headers.entries();
             temp = iterator.next();
             while (!temp.done) {
                 headers[temp.value[0]] = temp.value[1];
                 temp = iterator.next();
             }
         } else {
-            headers = options.headers;
+            headers = <any>options.headers;
         }
 
         return new Promise((resolve, reject) => {
@@ -67,7 +65,10 @@ export class SPRequestExecutorClient implements HttpClientImpl {
             }
         }
 
-        return new Response(<any>spResponse.body, {
+        // issue #256, Cannot have an empty string body when creating a Response with status 204
+        let body = spResponse.statusCode === 204 ? null : spResponse.body;
+
+        return new Response(body, {
             headers: responseHeaders,
             status: spResponse.statusCode,
             statusText: spResponse.statusText,
